@@ -69,7 +69,7 @@ final class HandleProviderWebhook implements ShouldQueue
         }
 
         // 4. Ledger Posting (Double-Entry)
-        // We resolve fees (mocked for demo logic based on user's assumption)
+        // We resolve fees
         $transaction = Transaction::where('payment_intent_id', $attempt->payment_intent_id)->first();
 
         if (! $transaction) {
