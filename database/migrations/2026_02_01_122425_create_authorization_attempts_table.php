@@ -18,7 +18,8 @@ return new class extends Migration
             $table->string('channel');
             $table->string('provider_reference')->nullable();
             $table->string('status')->default('pending');
-            $table->integer('fee_amount');
+            $table->integer('fee');
+            $table->integer('provider_fee')->default(0);
             $table->string('currency');
             $table->string('idempotency_key')->unique();
             $table->json('raw_request')->nullable();

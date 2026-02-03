@@ -65,7 +65,7 @@ final class PaymentController
                     'email' => $payment->customer->email,
                     'phone' => $payment->customer->phone,
                 ],
-                'fee' => $attempt->fee_amount,
+                'fee' => $attempt->fee,
                 'authorization' => $attempt->authorization,
             ]);
         } catch (\Exception $e) {

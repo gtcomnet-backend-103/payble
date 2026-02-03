@@ -61,7 +61,7 @@ final class AuthorizePayment
                 'provider_id' => $provider->id,
                 'channel' => $channel,
                 'status' => AuthorizationStatus::Pending,
-                'fee_amount' => $feeAmount,
+                'fee' => $feeAmount,
                 'currency' => $payment->currency->value,
                 'idempotency_key' => "auth_{$payment->id}_{$channel->value}",
             ]);

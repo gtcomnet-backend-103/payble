@@ -56,7 +56,7 @@ final class AuthorizationAttempt extends Model
         'channel',
         'provider_reference',
         'status',
-        'fee_amount',
+        'fee',
         'currency',
         'idempotency_key',
         'raw_request',
@@ -79,7 +79,7 @@ final class AuthorizationAttempt extends Model
         return [
             'channel' => PaymentChannel::class,
             'status' => AuthorizationStatus::class,
-            'fee_amount' => 'integer',
+            'fee' => 'integer',
             'raw_request' => 'array',
             'raw_response' => 'array',
             'metadata' => 'array',

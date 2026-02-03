@@ -87,9 +87,9 @@ final class HandleProviderWebhook implements ShouldQueue
         }
 
         [$merchantFee, $customerFee] = match ($attempt->paymentIntent->bearer) {
-            FeeBearer::Merchant->value => [$attempt->fee_amount, 0],
-            FeeBearer::Customer->value => [$attempt->fee_amount, 0],
-            FeeBearer::Split->value => [bcmul((string) $attempt->fee_amount, "0.5"), bcmul((string) $attempt->fee_amount, "0.5")],
+            FeeBearer::Merchant->value => [$attempt->fee, 0],
+            FeeBearer::Customer->value => [$attempt->fee, 0],
+            FeeBearer::Split->value => [bcmul((string) $attempt->fee, "0.5"), bcmul((string) $attempt->fee, "0.5")],
         };
 
         $platformFee = PaymentProvider::getFee($attempt->provider, $attempt->channel);

@@ -57,7 +57,7 @@ it('receives and processes a successful paystack webhook', function () {
         'provider_reference' => 'PAYSTACK_REF_123',
         'status' => AuthorizationStatus::PendingPin,
         'currency' => 'NGN',
-        'fee_amount' => 0,
+        'fee' => 0,
         'idempotency_key' => 'IDEM_KEY_123',
     ]);
 
