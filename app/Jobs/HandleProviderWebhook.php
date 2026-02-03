@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Domains\Ledger\Actions\RecordPaymentLedgerPostings;
 use App\Domains\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
+use App\Enums\FeeBearer;
 use App\Enums\PaymentStatus;
 use App\Models\AuthorizationAttempt;
 use App\Models\Provider;
@@ -37,19 +38,17 @@ final class HandleProviderWebhook implements ShouldQueue
             $event->raw_payload
         );
 
+        /** @var AuthorizationAttempt $attempt */
         $attempt = AuthorizationAttempt::where('provider_reference', $normalized->reference)->latest()->first();
 
         if (! $attempt) {
-            // Unmatched - log and exit (or queue for later)
             Log::warning("Webhook unmatched: {$normalized->reference}");
-
             return;
         }
 
         // 2. State Evaluation
-        if ($attempt->status === AuthorizationStatus::Success) {
+        if (AuthorizationStatus::Success->is($attempt->status)) {
             $event->update(['processed_at' => now()]);
-
             return;
         }
 
@@ -61,19 +60,11 @@ final class HandleProviderWebhook implements ShouldQueue
 
             if (! $verificationResponse->status->is(AuthorizationStatus::Success)) {
                 Log::warning("Transaction not yet successful: {$normalized->reference}");
-
                 return;
             }
         } catch (Exception $e) {
             Log::error('verification failed from provider: '.$e->getMessage());
 
-            return;
-        }
-
-        // For now, we move forward if normalized status says success,
-        // effectively trusting the webhook BUT we did verify it exists on provider side.
-        if (! $normalized->status->is(AuthorizationStatus::Success)) {
-            // Handle failure cases
             return;
         }
 
@@ -95,13 +86,21 @@ final class HandleProviderWebhook implements ShouldQueue
             ]);
         }
 
+        [$merchantFee, $customerFee] = match ($attempt->paymentIntent->bearer) {
+            FeeBearer::Merchant->value => [$attempt->fee_amount, 0],
+            FeeBearer::Customer->value => [$attempt->fee_amount, 0],
+            FeeBearer::Split->value => [bcmul((string) $attempt->fee_amount, "0.5"), bcmul((string) $attempt->fee_amount, "0.5")],
+        };
+
+        $platformFee = PaymentProvider::getFee($attempt->provider, $attempt->channel);
+
         // Specific ledger logic from user
         $recordLedger->execute(
             $transaction,
             provider: $attempt->provider,
-            customerFee: 10,  // Mocked per user request
-            businessFee: 10,  // Mocked per user request
-            providerFee: 5     // Mocked per user request
+            customerFee: $customerFee,
+            businessFee: $merchantFee,
+            providerFee: $platformFee
         );
 
         // 5. State Transitions

@@ -11,13 +11,13 @@ final class ProcessWebhook
 {
     public function execute(Provider $provider, array $payload): void
     {
-        // 1. Normalize payload
-        $normalized = PaymentProvider::normalizeWebhook($provider, $payload);
+        // Normalize payload
+        $webhookPayload = PaymentProvider::normalizeWebhook($provider, $payload);
 
-        // 3. Idempotency Check (Webhook-Level)
-        if ($normalized->providerEventId) {
+        // Idempotency Check (Webhook-Level)
+        if ($webhookPayload->providerEventId) {
             $exists = WebhookEvent::where('provider', $provider->identifier)
-                ->where('provider_event_id', $normalized->providerEventId)
+                ->where('provider_event_id', $webhookPayload->providerEventId)
                 ->exists();
 
             if ($exists) {
@@ -25,16 +25,16 @@ final class ProcessWebhook
             }
         }
 
-        // 4. Persist Raw Event
+        // Persist Raw Event
         $event = WebhookEvent::create([
             'provider' => $provider->identifier,
-            'provider_event_id' => $normalized->providerEventId,
-            'event_type' => $normalized->eventType,
+            'provider_event_id' => $webhookPayload->providerEventId,
+            'event_type' => $webhookPayload->eventType,
             'raw_payload' => $payload,
             'received_at' => now(),
         ]);
 
-        // 5. Dispatch async job for state evaluation & ledger
+        // Dispatch async job for state evaluation & ledger
         HandleProviderWebhook::dispatch($event->id);
     }
 }
