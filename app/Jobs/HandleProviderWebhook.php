@@ -63,7 +63,7 @@ final class HandleProviderWebhook implements ShouldQueue
                 return;
             }
         } catch (Exception $e) {
-            Log::error('verification failed from provider: '.$e->getMessage());
+            Log::error('verification failed from provider: ' . $e->getMessage());
 
             return;
         }
@@ -87,12 +87,16 @@ final class HandleProviderWebhook implements ShouldQueue
         }
 
         [$merchantFee, $customerFee] = match ($attempt->paymentIntent->bearer) {
-            FeeBearer::Merchant->value => [$attempt->fee, 0],
-            FeeBearer::Customer->value => [$attempt->fee, 0],
-            FeeBearer::Split->value => [bcmul((string) $attempt->fee, "0.5"), bcmul((string) $attempt->fee, "0.5")],
+            FeeBearer::Merchant => [$attempt->fee, 0],
+            FeeBearer::Customer => [$attempt->fee, 0],
+            FeeBearer::Split => [bcmul((string) $attempt->fee, "0.5"), bcmul((string) $attempt->fee, "0.5")],
         };
 
-        $platformFee = PaymentProvider::getFee($attempt->provider, $attempt->channel);
+        $platformFee = PaymentProvider::getFee(
+            $attempt->provider,
+            $attempt->channel,
+            $attempt->paymentIntent->amount //Todo: amount is suppose to be amount paid to provider
+        );
 
         // Specific ledger logic from user
         $recordLedger->execute(

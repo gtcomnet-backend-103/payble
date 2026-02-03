@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static bool verifyWebhook(Provider $provider, array $payload, array $headers)
  * @method static WebhookPayloadDTO normalizeWebhook(Provider $provider, array $payload)
  * @method static ProviderResponse verifyTransaction(Provider $provider, string $reference)
+ * @method static int getFee(Provider $provider, \App\Enums\PaymentChannel $channel, int $amount)
  *
  * @see \App\Domains\Providers\Services\PaymentProvider
  */

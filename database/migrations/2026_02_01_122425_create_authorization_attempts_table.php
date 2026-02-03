@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('status')->default('pending');
             $table->integer('fee');
             $table->integer('provider_fee')->default(0);
+            $table->integer('amount');
             $table->string('currency');
             $table->string('idempotency_key')->unique();
             $table->json('raw_request')->nullable();

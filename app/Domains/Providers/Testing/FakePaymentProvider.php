@@ -62,7 +62,11 @@ final class FakePaymentProvider extends PaymentProvider
             reference: $payload['data']['reference'] ?? 'ref_fake',
             amount: $payload['data']['amount'] ?? 0,
             currency: $payload['data']['currency'] ?? 'NGN',
-            status: $payload['data']['status'] ?? 'success',
+            status: match ($payload['data']['status'] ?? 'success') {
+                'success' => \App\Enums\AuthorizationStatus::Success,
+                'failed' => \App\Enums\AuthorizationStatus::Failed,
+                default => \App\Enums\AuthorizationStatus::Pending,
+            },
             rawPayload: $payload
         );
     }
@@ -87,5 +91,18 @@ final class FakePaymentProvider extends PaymentProvider
             providerReference: 'ref_verified',
             rawResponse: ['status' => 'success']
         );
+    }
+
+    protected int $fee = 0;
+
+    public function shouldReturnFee(int $fee): self
+    {
+        $this->fee = $fee;
+        return $this;
+    }
+
+    public function getFee(Provider $provider, \App\Enums\PaymentChannel $channel, int $amount): int
+    {
+        return $this->fee;
     }
 }
