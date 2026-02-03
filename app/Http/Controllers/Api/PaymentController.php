@@ -71,7 +71,7 @@ final class PaymentController
         } catch (\Exception $e) {
             return response()->json([
                 'message' => $e->getMessage(),
-            ], $e->getCode() ?: 400);
+            ], 400);
         }
     }
 }

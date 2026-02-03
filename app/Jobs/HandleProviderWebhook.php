@@ -92,19 +92,20 @@ final class HandleProviderWebhook implements ShouldQueue
             FeeBearer::Split => [bcmul((string) $attempt->fee, "0.5"), bcmul((string) $attempt->fee, "0.5")],
         };
 
-        $platformFee = PaymentProvider::getFee(
+        // Recalculate this because transaction might not be originated from the system
+        $providerFee = PaymentProvider::getFee(
             $attempt->provider,
             $attempt->channel,
-            $attempt->paymentIntent->amount //Todo: amount is suppose to be amount paid to provider
+            $attempt->amount
         );
 
         // Specific ledger logic from user
         $recordLedger->execute(
             $transaction,
             provider: $attempt->provider,
-            customerFee: $customerFee,
-            businessFee: $merchantFee,
-            providerFee: $platformFee
+            customerFee: (int) $customerFee,
+            businessFee: (int) $merchantFee,
+            providerFee: $providerFee
         );
 
         // 5. State Transitions

@@ -15,41 +15,6 @@ final class AuthorizationAttempt extends Model
 {
     use HasFactory;
 
-    /**
-     * @return Attribute<string|null, never>
-     */
-    protected function action(): Attribute
-    {
-        return Attribute::get(function (): ?string {
-            return match ($this->status) {
-                AuthorizationStatus::PendingPin => 'pin',
-                AuthorizationStatus::PendingOtp => 'otp',
-                AuthorizationStatus::PendingTransfer => 'transfer',
-                default => null,
-            };
-        });
-    }
-
-    /**
-     * @return Attribute<array<string, mixed>, never>
-     */
-    protected function bankDetails(): Attribute
-    {
-        return Attribute::get(fn(): array => $this->raw_response['bank_details'] ?? []);
-    }
-
-    /**
-     * @return Attribute<array<string, mixed>, never>
-     */
-    protected function authorization(): Attribute
-    {
-        return Attribute::get(
-            fn(): array => $this->channel === PaymentChannel::BankTransfer
-                ? $this->bank_details
-                : []
-        );
-    }
-
     protected $fillable = [
         'payment_intent_id',
         'provider_id',
@@ -62,6 +27,8 @@ final class AuthorizationAttempt extends Model
         'raw_request',
         'raw_response',
         'metadata',
+        'provider_fee',
+        'amount',
     ];
 
     public function paymentIntent(): BelongsTo
@@ -84,5 +51,40 @@ final class AuthorizationAttempt extends Model
             'raw_response' => 'array',
             'metadata' => 'array',
         ];
+    }
+
+    /**
+     * @return Attribute<string|null, never>
+     */
+    protected function action(): Attribute
+    {
+        return Attribute::get(function (): ?string {
+            return match ($this->status) {
+                AuthorizationStatus::PendingPin => 'pin',
+                AuthorizationStatus::PendingOtp => 'otp',
+                AuthorizationStatus::PendingTransfer => 'transfer',
+                default => null,
+            };
+        });
+    }
+
+    /**
+     * @return Attribute<array<string, mixed>, never>
+     */
+    protected function bankDetails(): Attribute
+    {
+        return Attribute::get(fn (): array => $this->raw_response['bank_details'] ?? []);
+    }
+
+    /**
+     * @return Attribute<array<string, mixed>, never>
+     */
+    protected function authorization(): Attribute
+    {
+        return Attribute::get(
+            fn (): array => $this->channel === PaymentChannel::BankTransfer
+                ? $this->bank_details
+                : []
+        );
     }
 }

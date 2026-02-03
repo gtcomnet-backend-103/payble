@@ -44,6 +44,11 @@ final class PaymentIntent extends Model
         return $this->hasMany(Transaction::class);
     }
 
+    public function attempts(): HasMany
+    {
+        return $this->hasMany(AuthorizationAttempt::class);
+    }
+
     public function casts(): array
     {
         return [

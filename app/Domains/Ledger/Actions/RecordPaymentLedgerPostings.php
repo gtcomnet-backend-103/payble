@@ -69,10 +69,13 @@ final class RecordPaymentLedgerPostings
                 ->where('slug', $business->id . '_wallet')
                 ->firstOrFail();
 
+            // Get amount from attempt, cus it holds providers amount
+            $amount = $transaction->paymentIntent->attempts()->latest()->first()->amount;
+
             // 1. Record gross inflow from provider
             // DR Provider Clearing / CR Customer Payment Source
-            $this->ledgerService->debit($transaction, $providerClearing, $transaction->amount);
-            $this->ledgerService->credit($transaction, $customerSource, $transaction->amount);
+            $this->ledgerService->debit($transaction, $providerClearing, $amount);
+            $this->ledgerService->credit($transaction, $customerSource, $amount);
 
             // 2. Apply customer fee
             // DR Customer Payment Source / CR Platform Revenue
