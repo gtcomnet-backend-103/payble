@@ -9,7 +9,7 @@ use App\Domains\Providers\Contracts\ProviderAdapter;
 use App\Models\Provider;
 use Illuminate\Support\Facades\App;
 
-final class ProviderResolver
+class ProviderResolver
 {
     /** @var array<string, class-string<ProviderAdapter>> */
     private array $map = [

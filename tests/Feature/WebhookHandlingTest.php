@@ -48,6 +48,7 @@ it('receives and processes a successful paystack webhook', function () {
         'business_id' => $this->business->id,
         'amount' => 1000,
         'reference' => 'REF_WEBHOOK_1',
+        'bearer' => \App\Enums\FeeBearer::Split,
     ]);
 
     $attempt = AuthorizationAttempt::create([
@@ -57,7 +58,7 @@ it('receives and processes a successful paystack webhook', function () {
         'provider_reference' => 'PAYSTACK_REF_123',
         'status' => AuthorizationStatus::PendingPin,
         'currency' => 'NGN',
-        'fee_amount' => 0,
+        'fee_amount' => 20,
         'idempotency_key' => 'IDEM_KEY_123',
     ]);
 
@@ -74,6 +75,9 @@ it('receives and processes a successful paystack webhook', function () {
             'status' => 'success',
         ],
     ];
+
+    // Set the fake provider fee for the webhook processing
+    PaymentProvider::fake()->shouldReturnFee(5);
 
     // 3. Send Webhook (Signature check is mocked in Adapter to check for presence)
     postJson('/api/webhooks/paystack', $payload, [
@@ -155,7 +159,7 @@ it('prevents double processing of the same webhook event', function () {
         reference: 'REF_1',
         amount: 1000,
         currency: 'NGN',
-        status: 'success',
+        status: \App\Enums\AuthorizationStatus::Success,
         rawPayload: []
     ));
 

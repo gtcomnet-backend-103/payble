@@ -17,4 +17,6 @@ interface ProviderAdapter
     public function normalizeWebhook(array $payload): WebhookPayloadDTO;
 
     public function verifyTransaction(string $reference): ProviderResponse;
+
+    public function getFee(\App\Enums\PaymentChannel $channel, int $amount): int;
 }

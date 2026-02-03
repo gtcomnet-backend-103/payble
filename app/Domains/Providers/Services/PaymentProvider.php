@@ -12,7 +12,7 @@ use App\Models\Provider;
 
 class PaymentProvider
 {
-    public function __construct(protected ?ProviderResolver $resolver = null) {}
+    public function __construct(protected ProviderResolver $resolver) {}
 
     public static function fake(): FakePaymentProvider
     {
@@ -39,5 +39,10 @@ class PaymentProvider
     public function verifyTransaction(Provider $provider, string $reference): ProviderResponse
     {
         return $this->resolver->resolve($provider)->verifyTransaction($reference);
+    }
+
+    public function getFee(Provider $provider, \App\Enums\PaymentChannel $channel, int $amount): int
+    {
+        return $this->resolver->resolve($provider)->getFee($channel, $amount);
     }
 }

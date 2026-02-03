@@ -73,7 +73,11 @@ final class PaystackAdapter implements ProviderAdapter
             reference: (string) ($data['reference'] ?? ''),
             amount: (int) ($data['amount'] ?? 0),
             currency: (string) ($data['currency'] ?? 'NGN'),
-            status: (string) ($data['status'] ?? 'unknown'),
+            status: match ($data['status'] ?? 'unknown') {
+                'success' => AuthorizationStatus::Success,
+                'failed' => AuthorizationStatus::Failed,
+                default => AuthorizationStatus::Pending,
+            },
             rawPayload: $payload,
             metadata: $data['metadata'] ?? []
         );
@@ -87,5 +91,12 @@ final class PaystackAdapter implements ProviderAdapter
             providerReference: Str::random(10),
             rawResponse: ['status' => 'success', 'verified' => true]
         );
+    }
+
+    public function getFee(\App\Enums\PaymentChannel $channel, int $amount): int
+    {
+        // Mock: 1.5% + NGN 100 is typical, but we return a fixed low-level cost for now or calc dynamically
+        // Returning flat 1000 (10.00) for simplicity in this mock
+        return 1000;
     }
 }
