@@ -4,33 +4,29 @@ declare(strict_types=1);
 
 namespace App\Domains\Ledger\Services;
 
+use App\Enums\AccountType;
 use App\Models\LedgerAccount;
 use App\Models\LedgerEntry;
 use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 final class LedgerService
 {
-    public function getOrCreateAccount(
+    public function getAccount(
         ?Model $holder,
-        string $slug,
-        string $type,
-        string $name,
+        AccountType $type,
         string $currency = 'NGN',
-        ?array $metadata = null
+        array $metadata = []
     ): LedgerAccount {
-        $holderId = $holder?->getKey();
-        $holderType = $holder?->getMorphClass();
-        $prefix = $holder ? $holderId : 'system';
-
         return LedgerAccount::firstOrCreate(
-            ['slug' => "{$prefix}_{$slug}"],
             [
-                'name' => $name,
+                'holder_id' => $holder?->getKey(),
+                'holder_type' => $holder?->getMorphClass(),
                 'type' => $type,
-                'holder_id' => $holderId,
-                'holder_type' => $holderType,
                 'currency' => $currency,
+            ],
+            [
                 'metadata' => $metadata,
             ]
         );
@@ -38,12 +34,12 @@ final class LedgerService
 
     public function debit(Transaction $transaction, LedgerAccount $account, int $amount): LedgerEntry
     {
-        return $this->recordEntry($transaction, $account, abs($amount), 'debit');
+        return $this->recordEntry($transaction, $account, -abs($amount), 'debit');
     }
 
     public function credit(Transaction $transaction, LedgerAccount $account, int $amount): LedgerEntry
     {
-        return $this->recordEntry($transaction, $account, -abs($amount), 'credit');
+        return $this->recordEntry($transaction, $account, abs($amount), 'credit');
     }
 
     private function recordEntry(

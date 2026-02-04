@@ -24,7 +24,7 @@ final class CreateLedgerAccounts
         ];
 
         foreach ($accounts as $account) {
-            $this->ledgerService->getOrCreateAccount(
+            $this->ledgerService->getAccount(
                 $business,
                 $account['slug'],
                 $account['type'],

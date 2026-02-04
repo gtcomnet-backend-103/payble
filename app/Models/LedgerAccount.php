@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\AccountType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 final class LedgerAccount extends Model
@@ -16,18 +16,16 @@ final class LedgerAccount extends Model
     protected $fillable = [
         'holder_id',
         'holder_type',
-        'name',
-        'name',
         'type',
         'currency',
         'metadata',
-        'slug',
     ];
 
     public function casts(): array
     {
         return [
             'metadata' => 'array',
+            'type' => AccountType::class,
         ];
     }
 

@@ -11,7 +11,7 @@ use App\Domains\Providers\DataTransferObjects\WebhookPayloadDTO;
 use App\Models\Provider;
 use PHPUnit\Framework\Assert;
 
-final class FakePaymentProvider extends PaymentProvider
+class FakePaymentProvider extends PaymentProvider
 {
     /** @var array<string, ProviderResponse> */
     protected array $responses = [];

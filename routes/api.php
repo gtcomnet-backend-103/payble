@@ -13,4 +13,6 @@ Route::get('/user', function (Request $request) {
 Route::post('/payments', [PaymentController::class, 'store'])->middleware('auth:sanctum');
 Route::post('/payments/{reference}/authorize', [PaymentController::class, 'update'])->middleware('auth:sanctum');
 
-Route::post('/webhooks/{provider}', WebhookController::class)->name('webhooks');
+Route::post('/webhooks/{provider:identifier}', WebhookController::class)
+    ->middleware(\App\Http\Middleware\VerifyWebhookSignature::class)
+    ->name('webhooks');

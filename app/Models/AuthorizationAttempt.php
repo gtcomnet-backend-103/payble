@@ -15,6 +15,19 @@ final class AuthorizationAttempt extends Model
 {
     use HasFactory;
 
+    /**
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopePending($query)
+    {
+        return $query->whereIn('status', [
+            AuthorizationStatus::Pending,
+            AuthorizationStatus::PendingTransfer,
+            AuthorizationStatus::Success, // Optimistic success handling
+        ]);
+    }
+
     protected $fillable = [
         'payment_intent_id',
         'provider_id',
@@ -73,7 +86,7 @@ final class AuthorizationAttempt extends Model
      */
     protected function bankDetails(): Attribute
     {
-        return Attribute::get(fn (): array => $this->raw_response['bank_details'] ?? []);
+        return Attribute::get(fn(): array => $this->raw_response['bank_details'] ?? []);
     }
 
     /**
@@ -82,7 +95,7 @@ final class AuthorizationAttempt extends Model
     protected function authorization(): Attribute
     {
         return Attribute::get(
-            fn (): array => $this->channel === PaymentChannel::BankTransfer
+            fn(): array => $this->channel === PaymentChannel::BankTransfer
                 ? $this->bank_details
                 : []
         );

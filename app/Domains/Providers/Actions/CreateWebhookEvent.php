@@ -5,36 +5,38 @@ namespace App\Domains\Providers\Actions;
 use App\Domains\Providers\Facades\PaymentProvider;
 use App\Models\Provider;
 use App\Models\WebhookEvent;
-use App\Jobs\HandleProviderWebhook;
+use App\Jobs\ProcessWebhook;
 
-final class ProcessWebhook
+final class CreateWebhookEvent
 {
-    public function execute(Provider $provider, array $payload): void
+    /**
+     * @param Provider $provider
+     * @param array<string, mixed> $payload
+     * @return WebhookEvent
+     */
+    public function execute(Provider $provider, array $payload): WebhookEvent
     {
         // Normalize payload
         $webhookPayload = PaymentProvider::normalizeWebhook($provider, $payload);
 
         // Idempotency Check (Webhook-Level)
         if ($webhookPayload->providerEventId) {
-            $exists = WebhookEvent::where('provider', $provider->identifier)
+            $event = WebhookEvent::query()->where('provider', $provider->identifier)
                 ->where('provider_event_id', $webhookPayload->providerEventId)
-                ->exists();
+                ->first();
 
-            if ($exists) {
-                return;
+            if ($event) {
+                return $event;
             }
         }
 
         // Persist Raw Event
-        $event = WebhookEvent::create([
+        return WebhookEvent::create([
             'provider' => $provider->identifier,
             'provider_event_id' => $webhookPayload->providerEventId,
             'event_type' => $webhookPayload->eventType,
             'raw_payload' => $payload,
             'received_at' => now(),
         ]);
-
-        // Dispatch async job for state evaluation & ledger
-        HandleProviderWebhook::dispatch($event->id);
     }
 }

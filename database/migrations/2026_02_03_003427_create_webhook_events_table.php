@@ -19,6 +19,7 @@ return new class extends Migration
             $table->json('raw_payload');
             $table->timestamp('received_at')->useCurrent();
             $table->timestamp('processed_at')->nullable();
+            $table->string('feedback')->nullable();
             $table->timestamps();
 
             $table->index(['provider', 'provider_event_id']);

@@ -14,11 +14,9 @@ return new class extends Migration
         Schema::create('ledger_accounts', function (Blueprint $table) {
             $table->id();
             $table->nullableMorphs('holder');
-            $table->string('name');
             $table->string('type');
             $table->string('currency', 3);
             $table->json('metadata')->nullable();
-            $table->string('slug');
             $table->timestamps();
 
             $table->unique(['slug', 'currency', 'holder_id', 'holder_type']);
