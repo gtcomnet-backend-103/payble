@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -16,7 +18,7 @@ return new class extends Migration
             $table->foreignId('payment_intent_id')->constrained()->cascadeOnDelete();
             $table->foreignId('provider_id')->constrained()->cascadeOnDelete();
             $table->string('channel');
-            $table->string('provider_reference')->nullable();
+            $table->string('provider_reference');
             $table->string('status')->default('pending');
             $table->integer('fee');
             $table->integer('provider_fee')->default(0);

@@ -1,13 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Listeners;
 
 use App\Events\WebhookReceived;
 use App\Jobs\ProcessWebhook;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 
-class DispatchWebhookProcessing
+final class DispatchWebhookProcessing
 {
     /**
      * Create the event listener.

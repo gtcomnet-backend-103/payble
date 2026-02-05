@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Domains\Payments\Actions\ProcessPaymentAttempt;
-use App\Domains\Providers\Facades\PaymentProvider;
+use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\PaymentStatus;
 use App\Models\AuthorizationAttempt;
 use App\Models\PaymentIntent;

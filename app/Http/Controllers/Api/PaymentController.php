@@ -23,14 +23,12 @@ final class PaymentController
 
     public function store(StorePaymentRequest $request): TransactionResource|JsonResponse
     {
-        $user = $request->user();
-
-        // In a real scenario, we'd resolve the business more robustly (e.g. from middleware)
-        $business = $user->businesses()->first();
+        $actor = $request->user();
+        $business = $actor instanceof \App\Models\Business ? $actor : $actor->businesses()->first();
 
         if (! $business) {
             return response()->json([
-                'message' => 'User does not have an active business onboarding complete.',
+                'message' => 'Active business not found.',
             ], 403);
         }
 

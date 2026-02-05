@@ -9,7 +9,7 @@ use App\Models\LedgerAccount;
 use App\Models\LedgerEntry;
 use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 final class LedgerService
 {
@@ -32,14 +32,53 @@ final class LedgerService
         );
     }
 
-    public function debit(Transaction $transaction, LedgerAccount $account, int $amount): LedgerEntry
+    // Domain-specific account accessors (hide AccountType from business code)
+
+    public function customerWallet(Model $customer, string $currency = 'NGN'): LedgerAccount
     {
-        return $this->recordEntry($transaction, $account, -abs($amount), 'debit');
+        return $this->getAccount($customer, AccountType::CUSTOMER_WALLET, $currency);
     }
 
-    public function credit(Transaction $transaction, LedgerAccount $account, int $amount): LedgerEntry
+    public function businessWallet(Model $business, string $currency = 'NGN'): LedgerAccount
     {
-        return $this->recordEntry($transaction, $account, abs($amount), 'credit');
+        return $this->getAccount($business, AccountType::BUSINESS_WALLET, $currency);
+    }
+
+    public function providerClearing(Model $provider, string $currency = 'NGN'): LedgerAccount
+    {
+        return $this->getAccount($provider, AccountType::PROVIDER_CLEARING, $currency);
+    }
+
+    public function platformRevenue(string $currency = 'NGN'): LedgerAccount
+    {
+        return $this->getAccount(null, AccountType::PLATFORM_FEE_REVENUE, $currency);
+    }
+
+    public function providerFeeExpense(string $currency = 'NGN'): LedgerAccount
+    {
+        return $this->getAccount(null, AccountType::PROVIDER_FEE_EXPENSE, $currency);
+    }
+
+    /**
+     * Atomically transfer funds between two accounts.
+     * Creates both debit and credit entries as one business action.
+     *
+     * @param  Transaction  $transaction  The transaction context
+     * @param  LedgerAccount  $from  Account to debit (source)
+     * @param  LedgerAccount  $to  Account to credit (destination)
+     * @param  int  $amount  Amount to transfer (positive value)
+     * @return array{debit: LedgerEntry, credit: LedgerEntry}
+     */
+    public function transfer(Transaction $transaction, LedgerAccount $from, LedgerAccount $to, int $amount): array
+    {
+        $amount = abs($amount); // Ensure positive
+
+        return DB::transaction(function () use ($from, $to, $amount, $transaction) {
+            return [
+                'debit' => $this->recordEntry($transaction, $from, -$amount, 'debit'),
+                'credit' => $this->recordEntry($transaction, $to, $amount, 'credit'),
+            ];
+        });
     }
 
     private function recordEntry(

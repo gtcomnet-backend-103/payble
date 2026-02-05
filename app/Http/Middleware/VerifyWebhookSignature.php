@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Domains\Payments\Providers\Facades\PaymentProvider;
+use App\Models\Provider;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,14 +21,14 @@ class VerifyWebhookSignature
         $provider = $request->route('provider');
 
         // Ensure provider is resolved (Route Model Binding should handle this, but for safety)
-        if (! $provider instanceof \App\Models\Provider) {
+        if (! $provider instanceof Provider) {
             abort(404, 'Provider not found');
         }
 
         $payload = $request->all();
         $headers = collect($request->headers->all())->map(fn($h) => $h[0])->toArray();
 
-        if (! \App\Domains\Providers\Facades\PaymentProvider::verifyWebhook($provider, $payload, $headers)) {
+        if (! PaymentProvider::verifyWebhook($provider, $payload, $headers)) {
             return response()->json(['message' => 'Invalid signature'], 401);
         }
 

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Domains\Providers\Facades\PaymentProvider;
-use App\Enums\AccountType;
+use App\Domains\Payments\Actions\AuthorizePayment;
+use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
 use App\Enums\PaymentChannel;
 use App\Models\AuthorizationAttempt;
 use App\Models\Business;
-use App\Models\LedgerAccount;
+use App\Models\FeeConfig;
 use App\Models\LedgerEntry;
 use App\Models\PaymentIntent;
 use App\Models\Provider;
@@ -49,22 +49,20 @@ it('receives and processes a successful provider webhook', function () {
         'bearer' => App\Enums\FeeBearer::Split,
     ]);
 
-    $attempt = AuthorizationAttempt::create([
-        'payment_intent_id' => $payment->id,
-        'provider_id' => $this->provider->id,
-        'channel' => PaymentChannel::Card,
-        'provider_reference' => 'REF_123',
+    FeeConfig::factory()->create([
+        'fixed_amount' => 20,
+        'channel' => 'card',
+    ]);
+    // Set the fake provider fee BEFORE creating the attempt so it's populated
+    PaymentProvider::fake()->shouldReturnFee(5);
+
+    $attempt = app(AuthorizePayment::class)->createAttempt($payment, PaymentChannel::Card);
+    $attempt->update([
         'status' => AuthorizationStatus::Pending,
-        'currency' => 'NGN',
-        'amount' => 1010,
-        'fee' => 20,
-        'idempotency_key' => 'IDEM_KEY_123',
+        'provider_reference' => 'REF_123', // matches payload reference
     ]);
 
     // 2. Mock Webhook Interaction
-    // Note: We use the real PaystackAdapter normalization logic because we want to test true integration
-    // But we mock the signature verification in the controller's logic (which checks for the header)
-
     $payload = [
         'event' => 'charge.success',
         'data' => [
@@ -74,9 +72,6 @@ it('receives and processes a successful provider webhook', function () {
             'status' => 'success',
         ],
     ];
-
-    // Set the fake provider fee for the webhook processing
-    PaymentProvider::fake()->shouldReturnFee(5);
 
     // 3. Send Webhook (Signature check is mocked in Adapter to check for presence)
     postJson('/api/webhooks/test_provider', $payload)->assertStatus(200);
@@ -105,42 +100,24 @@ it('receives and processes a successful provider webhook', function () {
 
     // 7. Assert Ledger Postings
     /*
-     * RecordPaymentLedgerPostings Logic uses AccountType enums.
+     * Use LedgerService domain methods instead of querying by AccountType
      */
 
-    // Check accounts based on new logic
-    $clearing = LedgerAccount::where('holder_type', $this->provider->getMorphClass())
-        ->where('holder_id', $this->provider->id)
-        ->where('type', AccountType::PROVIDER_CLEARING)
-        ->where('currency', 'NGN')
-        ->first();
-
-    $customerFunds = LedgerAccount::where('holder_type', $payment->customer->getMorphClass())
-        ->where('holder_id', $payment->customer_id)
-        ->where('type', AccountType::CUSTOMER_WALLET)
-        ->where('currency', 'NGN')
-        ->first();
-
-    $platformRevenue = LedgerAccount::whereNull('holder_id')
-        ->whereNull('holder_type')
-        ->where('type', AccountType::PLATFORM_FEE_REVENUE)
-        ->where('currency', 'NGN')
-        ->first();
-
-    $businessWallet = LedgerAccount::where('holder_type', $this->business->getMorphClass())
-        ->where('holder_id', $this->business->id)
-        ->where('type', AccountType::BUSINESS_WALLET)
-        ->where('currency', 'NGN')
-        ->first();
+    // Retrieve accounts using domain methods
+    $ledger = app(App\Domains\Ledger\Services\LedgerService::class);
+    $clearing = $ledger->providerClearing($this->provider, 'NGN');
+    $customerFunds = $ledger->customerWallet($payment->customer, 'NGN');
+    $platformRevenue = $ledger->platformRevenue('NGN');
+    $businessWallet = $ledger->businessWallet($this->business, 'NGN');
 
     expect($clearing)->not->toBeNull()
         ->and($customerFunds)->not->toBeNull()
         ->and($platformRevenue)->not->toBeNull()
         ->and($businessWallet)->not->toBeNull()
         ->and(LedgerEntry::where('ledger_account_id', $customerFunds->id)->sum('amount'))->toBe(0)
-//        ->and(LedgerEntry::where('ledger_account_id', $clearing->id)->sum('amount'))->toBe(995)
+        ->and(LedgerEntry::where('ledger_account_id', $clearing->id)->sum('amount'))->toBe(-1015) // Split: 1010 attempt + 10 = 1020, then -5 provider fee = 1015
         ->and(LedgerEntry::where('ledger_account_id', $platformRevenue->id)->sum('amount'))->toBe(20)
-        ->and(LedgerEntry::where('ledger_account_id', $businessWallet->id)->sum('amount'))->toBe(990);
+        ->and(LedgerEntry::where('ledger_account_id', $businessWallet->id)->sum('amount'))->toBe(990); // 1000 - 10 (business fee)
 
     $event->refresh();
     expect($event->processed_at)->not->toBeNull();
@@ -159,7 +136,7 @@ it('prevents double processing of the same webhook event', function () {
 
     // The fake normalizer by default returns 'evt_fake' for providerEventId.
     // We need to tell it to return 'EVT_1' to match.
-    PaymentProvider::fake()->shouldReturnWebhookPayload(new App\Domains\Providers\DataTransferObjects\WebhookPayloadDTO(
+    PaymentProvider::fake()->shouldReturnWebhookPayload(new App\Domains\Payments\Providers\DataTransferObjects\WebhookPayloadDTO(
         providerEventId: 'EVT_1',
         eventType: 'charge.success',
         reference: 'REF_1',
@@ -196,7 +173,7 @@ it('handles webhook for non-existent payment reference', function () {
     ]);
 
     // Mock normalization to return the unknown reference
-    PaymentProvider::fake()->shouldReturnWebhookPayload(new App\Domains\Providers\DataTransferObjects\WebhookPayloadDTO(
+    PaymentProvider::fake()->shouldReturnWebhookPayload(new App\Domains\Payments\Providers\DataTransferObjects\WebhookPayloadDTO(
         providerEventId: 'EVT_UNKNOWN',
         eventType: 'charge.success',
         reference: 'UNKNOWN_REF',
@@ -245,7 +222,7 @@ it('ignores already processed payments', function () {
     ]);
 
     // Mock normalization
-    PaymentProvider::fake()->shouldReturnWebhookPayload(new App\Domains\Providers\DataTransferObjects\WebhookPayloadDTO(
+    PaymentProvider::fake()->shouldReturnWebhookPayload(new App\Domains\Payments\Providers\DataTransferObjects\WebhookPayloadDTO(
         providerEventId: 'EVT_SUCCESS_AGAIN',
         eventType: 'charge.success',
         reference: 'PAYSTACK_REF_SUCCESS',

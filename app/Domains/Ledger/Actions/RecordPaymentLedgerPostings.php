@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Ledger\Actions;
 
 use App\Domains\Ledger\Services\LedgerService;
-use App\Enums\AccountType;
-use App\Models\LedgerAccount;
-use App\Models\Provider; // Add import
+use App\Models\Provider;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 
@@ -24,74 +22,45 @@ final class RecordPaymentLedgerPostings
         int $businessFee,
         int $providerFee
     ): void {
+        // Idempotency: skip if ledger postings already exist for this transaction
+        if ($transaction->ledgerEntries()->exists()) {
+            return;
+        }
+
         DB::transaction(function () use ($transaction, $provider, $customerFee, $businessFee, $providerFee) {
             $business = $transaction->business;
             $currency = $transaction->currency->value;
 
-            // Resolve Accounts
-            // Provider Clearing (Asset, owned by Provider)
-            $providerClearing = $this->ledgerService->getAccount(
-                $provider,
-                AccountType::PROVIDER_CLEARING,
-                $currency,
-            );
-
-            // Customer Funds (Liability, owned by Customer)
-            $customerSource = $this->ledgerService->getAccount(
-                $transaction->paymentIntent->customer,
-                AccountType::CUSTOMER_WALLET,
-                $currency
-            );
-
-            // Platform Revenue (Revenue, owned by Platform/System - null holder)
-            $platformRevenue = $this->ledgerService->getAccount(
-                null,
-                AccountType::PLATFORM_FEE_REVENUE,
-                $currency
-            );
-
-            // Provider Fees (Expense, owned by Platform/System - null holder)
-            $providerFeeExpense = $this->ledgerService->getAccount(
-                null,
-                AccountType::PROVIDER_FEE_EXPENSE,
-                $currency
-            );
-
-            // Business Wallet
-            $businessWallet = $this->ledgerService->getAccount(
-                $business,
-                AccountType::BUSINESS_WALLET,
-                $currency
-            );
+            // Resolve Accounts using domain methods
+            $providerClearing = $this->ledgerService->providerClearing($provider, $currency);
+            $customerSource = $this->ledgerService->customerWallet($transaction->paymentIntent->customer, $currency);
+            $platformRevenue = $this->ledgerService->platformRevenue($currency);
+            $providerFeeExpense = $this->ledgerService->providerFeeExpense($currency);
+            $businessWallet = $this->ledgerService->businessWallet($business, $currency);
 
             // Get amount from attempt, cus it holds providers amount
             $amount = $transaction->paymentIntent->attempts()->latest()->first()->amount;
 
             // 1. Record gross inflow from provider
-            // DR Provider Clearing / CR Customer Payment Source
-            $this->ledgerService->debit($transaction, $providerClearing, $amount);
-            $this->ledgerService->credit($transaction, $customerSource, $amount);
+            // Transfer: Provider Clearing → Customer Payment Source
+            $this->ledgerService->transfer($transaction, $providerClearing, $customerSource, $amount);
 
             // 2. Apply customer fee
-            // DR Customer Payment Source / CR Platform Revenue
-            $this->ledgerService->debit($transaction, $customerSource, $customerFee);
-            $this->ledgerService->credit($transaction, $platformRevenue, $customerFee);
+            // Transfer: Customer Payment Source → Platform Revenue
+            $this->ledgerService->transfer($transaction, $customerSource, $platformRevenue, $customerFee);
 
             // 3. Transfer net amount to business
-            // DR Customer Payment Source / CR Business Wallet
+            // Transfer: Customer Payment Source → Business Wallet
             $netToBusiness = $transaction->paymentIntent->amount;
-            $this->ledgerService->debit($transaction, $customerSource, $netToBusiness);
-            $this->ledgerService->credit($transaction, $businessWallet, $netToBusiness);
+            $this->ledgerService->transfer($transaction, $customerSource, $businessWallet, $netToBusiness);
 
             // 4. Apply business fee
-            // DR Business Wallet / CR Platform Revenue
-            $this->ledgerService->debit($transaction, $businessWallet, $businessFee);
-            $this->ledgerService->credit($transaction, $platformRevenue, $businessFee);
+            // Transfer: Business Wallet → Platform Revenue
+            $this->ledgerService->transfer($transaction, $businessWallet, $platformRevenue, $businessFee);
 
             // 5. Record provider fee (expense)
-            // DR Provider Fee Expense / CR Provider Clearing
-            $this->ledgerService->debit($transaction, $providerFeeExpense, $providerFee);
-            $this->ledgerService->credit($transaction, $providerClearing, $providerFee);
+            // Transfer: Provider Clearing → Provider Fee Expense
+            $this->ledgerService->transfer($transaction, $providerClearing, $providerFeeExpense, $providerFee);
         });
     }
 }

@@ -11,22 +11,55 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $payment_intent_id
+ * @property int $provider_id
+ * @property PaymentChannel $channel
+ * @property string $provider_reference
+ * @property AuthorizationStatus $status
+ * @property int $fee
+ * @property int $provider_fee
+ * @property int $amount
+ * @property string $currency
+ * @property string $idempotency_key
+ * @property array<array-key, mixed>|null $raw_request
+ * @property array<array-key, mixed>|null $raw_response
+ * @property array<array-key, mixed>|null $metadata
+ * @property \Carbon\CarbonImmutable|null $created_at
+ * @property \Carbon\CarbonImmutable|null $updated_at
+ * @property-read string|null $action
+ * @property-read array $authorization
+ * @property-read array $bank_details
+ * @property-read PaymentIntent $paymentIntent
+ * @property-read Provider $provider
+ *
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt pending()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereChannel($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereCurrency($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereFee($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereIdempotencyKey($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereMetadata($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt wherePaymentIntentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereProviderFee($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereProviderId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereProviderReference($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereRawRequest($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereRawResponse($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereUpdatedAt($value)
+ *
+ * @mixin \Eloquent
+ */
 final class AuthorizationAttempt extends Model
 {
     use HasFactory;
-
-    /**
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    public function scopePending($query)
-    {
-        return $query->whereIn('status', [
-            AuthorizationStatus::Pending,
-            AuthorizationStatus::PendingTransfer,
-            AuthorizationStatus::Success, // Optimistic success handling
-        ]);
-    }
 
     protected $fillable = [
         'payment_intent_id',
@@ -43,6 +76,19 @@ final class AuthorizationAttempt extends Model
         'provider_fee',
         'amount',
     ];
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopePending($query)
+    {
+        return $query->whereIn('status', [
+            AuthorizationStatus::Pending,
+            AuthorizationStatus::PendingTransfer,
+            AuthorizationStatus::Success, // Optimistic success handling
+        ]);
+    }
 
     public function paymentIntent(): BelongsTo
     {
@@ -99,5 +145,13 @@ final class AuthorizationAttempt extends Model
                 ? $this->bank_details
                 : []
         );
+    }
+    public function transitionTo(AuthorizationStatus $target): bool
+    {
+        if (! $this->status->canTransitionTo($target)) {
+            throw new \RuntimeException("Invalid status transition from {$this->status->value} to {$target->value}");
+        }
+
+        return (bool) $this->update(['status' => $target]);
     }
 }

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domains\Payments\Actions;
 
-use App\Domains\Providers\DataTransferObjects\CustomerDTO;
-use App\Domains\Providers\DataTransferObjects\PaymentAuthorizeDTO;
-use App\Domains\Providers\Facades\PaymentProvider;
+use App\Domains\Payments\Providers\DataTransferObjects\CustomerDTO;
+use App\Domains\Payments\Providers\DataTransferObjects\PaymentAuthorizeDTO;
+use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentChannel;
@@ -15,6 +15,7 @@ use App\Models\AuthorizationAttempt;
 use App\Models\PaymentIntent;
 use Exception;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 final class AuthorizePayment
 {
@@ -54,35 +55,13 @@ final class AuthorizePayment
 
             // 4. Select provider and resolve fee
             $provider = $this->selectProvider->execute($channel);
-            $feeAmount = $this->resolvePaymentFee->execute($payment, $channel);
-            $platformFee = PaymentProvider::getFee(
-                $provider,
-                $channel,
-                $payment->amount //Todo: amount is suppose to be amount paid to provider
-            );
-
-            $amount = match ($payment->bearer){
-                FeeBearer::Customer => bcadd($payment->amount, (string) $feeAmount),
-                FeeBearer::Merchant => $payment->amount,
-                FeeBearer::Split => bcadd($payment->amount, bcmul((string) $feeAmount, "0.5")),
-            };
 
             // 5. Create AuthorizationAttempt record
-            $attempt = AuthorizationAttempt::create([
-                'payment_intent_id' => $payment->id,
-                'provider_id' => $provider->id,
-                'channel' => $channel,
-                'status' => AuthorizationStatus::Pending,
-                'fee' => $feeAmount,
-                'provider_fee' => $platformFee,
-                'amount' => $amount,
-                'currency' => $payment->currency->value,
-                'idempotency_key' => "auth_{$payment->id}_{$channel->value}",
-            ]);
+            $attempt = $this->createAttempt($payment, $channel);
 
             // 6. Call provider authorization API via Facade
             $dto = new PaymentAuthorizeDTO(
-                reference: $payment->reference,
+                reference: $attempt->provider_reference,
                 amount: $payment->amount,
                 currency: $payment->currency,
                 channel: $channel,
@@ -119,5 +98,39 @@ final class AuthorizePayment
         if (! PaymentStatus::Initiated->is($payment->status)) {
             throw new Exception('Payment has already been successful.', 400);
         }
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function createAttempt(PaymentIntent $payment, PaymentChannel $channel): AuthorizationAttempt
+    {
+        $provider = $this->selectProvider->execute($channel);
+        $feeAmount = $this->resolvePaymentFee->execute($payment, $channel);
+
+        $amount = match ($payment->bearer) {
+            FeeBearer::Customer => bcadd((string) $payment->amount, (string) $feeAmount),
+            FeeBearer::Merchant => $payment->amount,
+            FeeBearer::Split => bcadd((string) $payment->amount, bcmul((string) $feeAmount, '0.5')),
+        };
+
+        $providerFee = PaymentProvider::getFee(
+            $provider,
+            $channel,
+            $amount
+        );
+
+        return AuthorizationAttempt::create([
+            'provider_reference' => Str::uuid()->toString(),
+            'payment_intent_id' => $payment->id,
+            'provider_id' => $provider->id,
+            'channel' => $channel,
+            'status' => AuthorizationStatus::Pending,
+            'fee' => $feeAmount,
+            'provider_fee' => $providerFee,
+            'amount' => $amount,
+            'currency' => $payment->currency->value,
+            'idempotency_key' => "payment_auth_{$payment->id}_{$channel->value}",
+        ]);
     }
 }

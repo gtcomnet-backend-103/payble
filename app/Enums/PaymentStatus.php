@@ -19,4 +19,23 @@ enum PaymentStatus: string
 
         return $status === $this;
     }
+
+    /**
+     * @return array<int, self>
+     */
+    public function transitions(): array
+    {
+        return match ($this) {
+            self::Initiated => [self::Pending, self::Processing, self::Success, self::Failed],
+            self::Pending => [self::Processing, self::Success, self::Failed],
+            self::Processing => [self::Success, self::Failed],
+            self::Success => [self::Reversed],
+            self::Failed, self::Reversed => [],
+        };
+    }
+
+    public function canTransitionTo(self $target): bool
+    {
+        return in_array($target, $this->transitions(), true);
+    }
 }

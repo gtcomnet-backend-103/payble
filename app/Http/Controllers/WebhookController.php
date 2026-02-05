@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domains\Providers\Actions\CreateWebhookEvent;
+use App\Domains\Payments\Actions\CreateWebhookEvent;
 use App\Events\WebhookReceived;
 use App\Models\Provider;
 use Illuminate\Http\JsonResponse;

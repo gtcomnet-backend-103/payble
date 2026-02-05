@@ -23,7 +23,7 @@ final class ProviderFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->company() . ' Payments',
+            'name' => $this->faker->company().' Payments',
             'identifier' => $this->faker->unique()->slug(2),
             'is_active' => true,
             'is_healthy' => true,
@@ -36,5 +36,18 @@ final class ProviderFactory extends Factory
                 'max_daily_limit' => 1000000,
             ],
         ];
+    }
+
+    public function test(): self
+    {
+        return $this->state(function () {
+            return [
+                'name' => 'Test Provider',
+                'identifier' => 'test_provider',
+                'is_active' => true,
+                'is_healthy' => true,
+                'supported_channels' => ['card'],
+            ];
+        });
     }
 }

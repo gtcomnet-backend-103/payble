@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Domains\Providers\DataTransferObjects\BankDetailsDTO;
-use App\Domains\Providers\DataTransferObjects\ProviderResponse;
-use App\Domains\Providers\Facades\PaymentProvider;
+use App\Domains\Payments\Providers\DataTransferObjects\BankDetailsDTO;
+use App\Domains\Payments\Providers\DataTransferObjects\ProviderResponse;
+use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
@@ -27,6 +27,7 @@ beforeEach(function () {
         'owner_id' => $this->user->id,
     ]);
     $this->user->businesses()->attach($this->business);
+    Sanctum::actingAs($this->business, ['*'], 'business');
 
     $this->provider = Provider::create([
         'name' => 'Test Provider',
@@ -55,7 +56,6 @@ beforeEach(function () {
 });
 
 it('authorizes a card payment with empty authorization array', function () {
-    Sanctum::actingAs($this->user);
 
     $payment = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
@@ -85,12 +85,11 @@ it('authorizes a card payment with empty authorization array', function () {
             'reference',
             'customer' => ['first_name', 'last_name', 'email', 'phone'],
             'fee',
-            'authorization'
+            'authorization',
         ]);
 });
 
 it('authorizes a bank transfer payment with details in authorization array', function () {
-    Sanctum::actingAs($this->user);
 
     $payment = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
@@ -124,7 +123,7 @@ it('authorizes a bank transfer payment with details in authorization array', fun
             'reference',
             'customer',
             'fee',
-            'authorization' => ['account_number', 'bank_name']
+            'authorization' => ['account_number', 'bank_name'],
         ]);
 
     $this->assertDatabaseHas('authorization_attempts', [
@@ -135,7 +134,6 @@ it('authorizes a bank transfer payment with details in authorization array', fun
 });
 
 it('returns dynamic action if required', function () {
-    Sanctum::actingAs($this->user);
 
     $payment = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
@@ -161,7 +159,6 @@ it('returns dynamic action if required', function () {
 });
 
 it('is idempotent per channel', function () {
-    Sanctum::actingAs($this->user);
 
     $payment = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
@@ -188,7 +185,6 @@ it('is idempotent per channel', function () {
 });
 
 it('rejects authorization if already successful', function () {
-    Sanctum::actingAs($this->user);
 
     $payment = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,

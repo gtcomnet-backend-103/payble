@@ -16,10 +16,10 @@ beforeEach(function () {
         'owner_id' => $this->user->id,
     ]);
     $this->user->businesses()->attach($this->business);
+    Sanctum::actingAs($this->business, ['*'], 'business');
 });
 
 it('validates required fields', function () {
-    Sanctum::actingAs($this->user);
 
     $this->postJson('/api/payments', [])
         ->assertStatus(422)
@@ -27,8 +27,6 @@ it('validates required fields', function () {
 });
 
 it('creates a payment request with email', function () {
-    Sanctum::actingAs($this->user);
-
     $response = $this->postJson('/api/payments', [
         'amount' => 500000,
         'email' => 'customer@example.com',
@@ -72,8 +70,6 @@ it('creates a payment request with email', function () {
 });
 
 it('creates a payment request with phone', function () {
-    Sanctum::actingAs($this->user);
-
     $response = $this->postJson('/api/payments', [
         'amount' => 100000,
         'phone' => '2348000000000',
@@ -88,8 +84,6 @@ it('creates a payment request with phone', function () {
 });
 
 it('creates a payment request with reference', function () {
-    Sanctum::actingAs($this->user);
-
     $response = $this->postJson('/api/payments', [
         'amount' => 100000,
         'email' => 'test@email.com',
@@ -102,8 +96,6 @@ it('creates a payment request with reference', function () {
 });
 
 it('creates a payment request with currency', function () {
-    Sanctum::actingAs($this->user);
-
     $response = $this->postJson('/api/payments', [
         'amount' => 100000,
         'email' => 'test@email.com',
@@ -116,8 +108,6 @@ it('creates a payment request with currency', function () {
 
 
 it('creates a payment request with bearer', function (FeeBearer $bearer) {
-    Sanctum::actingAs($this->user);
-
     $this->postJson('/api/payments', [
         'amount' => 100000,
         'email' => 'test@email.com',
@@ -130,8 +120,6 @@ it('creates a payment request with bearer', function (FeeBearer $bearer) {
 })->with(FeeBearer::cases());
 
 it('creates a payment request with metadata', function () {
-    Sanctum::actingAs($this->user);
-
     $response = $this->postJson('/api/payments', [
         'amount' => 100000,
         'email' => 'test@email.com',

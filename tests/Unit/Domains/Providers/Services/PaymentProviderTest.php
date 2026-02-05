@@ -4,17 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domains\Providers\Services;
 
-use App\Domains\Providers\DataTransferObjects\PaymentAuthorizeDTO;
-use App\Domains\Providers\DataTransferObjects\ProviderResponse;
-use App\Domains\Providers\Facades\PaymentProvider;
-use App\Domains\Providers\Services\PaymentProvider as PaymentProviderService;
-use App\Domains\Providers\Services\ProviderResolver;
-use App\Enums\AuthorizationStatus;
+use App\Domains\Payments\Providers\Facades\PaymentProvider;
+use App\Domains\Payments\Providers\Services\PaymentProvider as PaymentProviderService;
+use App\Domains\Payments\Providers\Services\ProviderResolver;
 use App\Enums\PaymentChannel;
 use App\Models\Provider;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
 final class PaymentProviderTest extends TestCase
 {
@@ -29,7 +26,7 @@ final class PaymentProviderTest extends TestCase
         $expectedFee = 1500;
 
         $resolver = Mockery::mock(ProviderResolver::class);
-        $adapter = Mockery::mock(\App\Domains\Providers\Contracts\ProviderAdapter::class);
+        $adapter = Mockery::mock(\App\Domains\Payments\Providers\Contracts\ProviderAdapter::class);
 
         $resolver->shouldReceive('resolve')
             ->once()

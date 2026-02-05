@@ -7,8 +7,8 @@ namespace App\Filament\Pages\Tenancy;
 use App\Models\Business;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Schema;
 use Filament\Pages\Tenancy\RegisterTenant;
+use Filament\Schemas\Schema;
 
 final class RegisterBusiness extends RegisterTenant
 {
@@ -39,9 +39,6 @@ final class RegisterBusiness extends RegisterTenant
         ]);
 
         $business->users()->attach(Filament::auth()->user());
-
-        // Create initial ledger accounts
-        app(\App\Domains\Ledger\Actions\CreateLedgerAccounts::class)->execute($business);
 
         return $business;
     }

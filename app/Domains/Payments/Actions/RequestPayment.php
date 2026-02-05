@@ -52,9 +52,9 @@ final class RequestPayment
             $customer = $this->resolveCustomer($business, $data);
 
             $currency = Currency::tryFrom($data['currency'] ?? 'NGN') ?? Currency::NGN;
-            $mode = PaymentMode::tryFrom($data['mode'] ?? 'test') ?? PaymentMode::Test;
+            $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? ($data['mode'] ?? 'test')) ?? PaymentMode::Test;
             $bearer = FeeBearer::tryFrom($data['bearer'] ?? 'merchant') ?? FeeBearer::Merchant;
-            $reference = $data['reference'] ?? 'TRX_'.Str::random(10);
+            $reference = $data['reference'] ?? 'TRX_' . Str::random(10);
 
             $paymentIntent = PaymentIntent::create([
                 'business_id' => $business->id,

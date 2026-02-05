@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Payments\Actions;
 
 use App\Domains\Ledger\Actions\RecordPaymentLedgerPostings;
-use App\Domains\Providers\Facades\PaymentProvider;
+use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentStatus;
@@ -13,6 +13,7 @@ use App\Models\AuthorizationAttempt;
 use App\Models\Provider;
 use App\Models\Transaction;
 use Exception;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 final readonly class ProcessPaymentAttempt
@@ -23,68 +24,85 @@ final readonly class ProcessPaymentAttempt
 
     public function execute(AuthorizationAttempt $attempt): bool
     {
-        // 1. Provider Verification (Never Skip)
+        // 1. Pre-validation & Idempotency Check
+        if ($attempt->paymentIntent->status->is(PaymentStatus::Success)) {
+            return false;
+        }
+
+        $provider = $attempt->provider;
+        $payment = $attempt->paymentIntent;
+
+        // 2. External Provider Verification
         try {
-            /** @var Provider $provider */
-            $provider = $attempt->provider;
             $verificationResponse = PaymentProvider::verifyTransaction($provider, $attempt->provider_reference);
 
             if (! $verificationResponse->status->is(AuthorizationStatus::Success)) {
-                Log::warning("Transaction not yet successful: {$attempt->provider_reference}");
+                Log::warning("Transaction not yet successful from provider {$provider->name}: {$attempt->provider_reference}");
 
                 return false;
             }
         } catch (Exception $e) {
-            Log::error('verification failed from provider: '.$e->getMessage());
+            Log::error("Payment verification failed from provider {$provider->name}: ".$e->getMessage());
 
             return false;
         }
 
-        // 2. Transaction Management
-        $transaction = Transaction::where('payment_intent_id', $attempt->payment_intent_id)->first();
+        // 3. Atomic State Management and Ledger Posting
+        return DB::transaction(function () use ($attempt, $payment, $provider) {
+            // Re-check attempt status inside transaction for absolute safety
+            $attempt->refresh();
+            if ($attempt->paymentIntent->status->is(PaymentStatus::Success)) {
+                return true;
+            }
 
-        if (! $transaction) {
-            $transaction = Transaction::create([
-                'business_id' => $attempt->paymentIntent->business_id,
-                'payment_intent_id' => $attempt->payment_intent_id,
-                'amount' => $attempt->paymentIntent->amount,
-                'currency' => $attempt->currency,
-                'status' => 'pending',
-                'reference' => $attempt->paymentIntent->reference,
-                'channel' => $attempt->channel,
-                'mode' => $attempt->paymentIntent->mode,
-            ]);
-        }
+            // A: Transaction Management (Ensures uniqueness and avoids race conditions)
+            $transaction = Transaction::firstOrCreate(
+                ['payment_intent_id' => $payment->id],
+                [
+                    'business_id' => $payment->business_id,
+                    'amount' => $payment->amount,
+                    'currency' => $payment->currency,
+                    'status' => PaymentStatus::Pending,
+                    'reference' => $payment->reference,
+                    'channel' => $attempt->channel,
+                    'mode' => $payment->mode,
+                ]
+            );
 
-        // 3. Fee Calculation
-        $halfFee = (int) bcmul((string) $attempt->fee, '0.5');
-        [$merchantFee, $customerFee] = match ($attempt->paymentIntent->bearer) {
-            FeeBearer::Merchant => [$attempt->fee, 0],
-            FeeBearer::Customer => [0, $attempt->fee],
-            FeeBearer::Split => [$halfFee, $halfFee],
-        };
+            // B: Idempotency (If transaction is already successful, we skip ledger and state updates)
+            if ($transaction->status->is(PaymentStatus::Success)) {
+                return true;
+            }
 
-        // Recalculate provider fee
-        $providerFee = PaymentProvider::getFee(
-            $provider,
-            $attempt->channel,
-            $attempt->amount
-        );
+            // C: Integer-Safe Fee Calculation
+            [$merchantFee, $customerFee] = match ($payment->bearer) {
+                FeeBearer::Merchant => [$attempt->fee, 0],
+                FeeBearer::Customer => [0, $attempt->fee],
+                FeeBearer::Split => (function () use ($attempt) {
+                    $m = (int) ($attempt->fee / 2);
 
-        // 4. Ledger Posting
-        $this->recordLedger->execute(
-            $transaction,
-            provider: $provider,
-            customerFee: (int) $customerFee,
-            businessFee: (int) $merchantFee,
-            providerFee: (int) $providerFee
-        );
+                    return [$m, $attempt->fee - $m];
+                })(),
+            };
+            $providerFee = $attempt->provider_fee;
 
-        // 5. State Transitions
-        $attempt->update(['status' => AuthorizationStatus::Success]);
-        $transaction->update(['status' => PaymentStatus::Success]);
-        $attempt->paymentIntent?->update(['status' => PaymentStatus::Success]);
+            // C: Ledger Posting
+            $this->recordLedger->execute(
+                $transaction,
+                provider: $provider,
+                customerFee: $customerFee,
+                businessFee: $merchantFee,
+                providerFee: $providerFee
+            );
 
-        return true;
+            // D: State Transitions
+            if (! $attempt->status->is(AuthorizationStatus::Success)) {
+                $attempt->transitionTo(AuthorizationStatus::Success);
+            }
+            $transaction->transitionTo(PaymentStatus::Success);
+            $payment->transitionTo(PaymentStatus::Success);
+
+            return true;
+        });
     }
 }
