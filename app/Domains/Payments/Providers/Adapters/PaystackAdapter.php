@@ -7,6 +7,7 @@ namespace App\Domains\Payments\Providers\Adapters;
 use App\Domains\Payments\Providers\Contracts\ProviderAdapter;
 use App\Domains\Payments\Providers\DataTransferObjects\BankDetailsDTO;
 use App\Domains\Payments\Providers\DataTransferObjects\PaymentAuthorizeDTO;
+use App\Domains\Payments\Providers\DataTransferObjects\PaymentValidateDTO;
 use App\Domains\Payments\Providers\DataTransferObjects\ProviderResponse;
 use App\Domains\Payments\Providers\DataTransferObjects\WebhookPayloadDTO;
 use App\Enums\AuthorizationStatus;
@@ -24,7 +25,7 @@ final class PaystackAdapter implements ProviderAdapter
             'email' => $dto->customer->email,
             'amount' => $dto->amount, // Amount in kobo
             'reference' => $dto->reference,
-            'metadata' => $dto->metadata
+            'metadata' => $dto->metadata,
         ];
 
         // Handle specific channel requirements
@@ -59,13 +60,13 @@ final class PaystackAdapter implements ProviderAdapter
         return new ProviderResponse(
             status: $mappedStatus,
             providerReference: $data['reference'] ?? $dto->reference,
-            rawResponse: $data,
             bankDetails: isset($data['bank']) ? new BankDetailsDTO(
                 accountNumber: $data['bank']['account_number'] ?? '',
                 bankName: $data['bank']['name'] ?? '',
                 accountName: $data['bank']['account_name'] ?? '',
                 expiresAt: null
-            ) : null
+            ) : null,
+            rawResponse: $data
         );
     }
 
@@ -120,7 +121,7 @@ final class PaystackAdapter implements ProviderAdapter
         );
     }
 
-    public function validate(string $providerReference, \App\Domains\Payments\Providers\DataTransferObjects\PaymentValidateDTO $dto): ProviderResponse
+    public function validate(string $providerReference, PaymentValidateDTO $dto): ProviderResponse
     {
         // 1. Determine endpoint based on DTO properties
         $endpoint = match (true) {
