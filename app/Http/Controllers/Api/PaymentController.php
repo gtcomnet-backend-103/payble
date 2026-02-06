@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Domains\Payments\Actions\RequestPayment;
 use App\Domains\Payments\Actions\AuthorizePayment;
+use App\Domains\Payments\Actions\RequestPayment;
 use App\Enums\AuthorizationStatus;
 use App\Enums\PaymentChannel;
-use App\Http\Requests\StorePaymentRequest;
 use App\Http\Requests\AuthorizePaymentRequest;
+use App\Http\Requests\StorePaymentRequest;
 use App\Http\Resources\TransactionResource;
+use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
 
 final class PaymentController
 {
     public function __construct(
-        protected RequestPayment $requestPayment,
-        protected AuthorizePayment $authorizePayment
+        private RequestPayment $requestPayment,
+        private AuthorizePayment $authorizePayment
     ) {}
 
     public function store(StorePaymentRequest $request): TransactionResource|JsonResponse
@@ -41,7 +41,7 @@ final class PaymentController
     {
         try {
             $channel = PaymentChannel::from($request->validated('channel') ?? PaymentChannel::Card->value);
-            $attempt = $this->authorizePayment->execute($reference, $channel);
+            $attempt = $this->authorizePayment->execute($reference, $channel, $request->validated());
             $attempt->load(['paymentIntent.customer']);
             $payment = $attempt->paymentIntent;
 
@@ -66,7 +66,7 @@ final class PaymentController
                 'fee' => $attempt->fee,
                 'authorization' => $attempt->authorization,
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'message' => $e->getMessage(),
             ], 400);

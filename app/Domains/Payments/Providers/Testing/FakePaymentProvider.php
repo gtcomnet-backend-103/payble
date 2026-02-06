@@ -12,7 +12,7 @@ use App\Models\Provider;
 use PHPUnit\Framework\Assert;
 use RuntimeException;
 
-class FakePaymentProvider extends PaymentProvider
+final class FakePaymentProvider extends PaymentProvider
 {
     /** @var array<string, ProviderResponse> */
     protected array $responses = [];
@@ -50,7 +50,7 @@ class FakePaymentProvider extends PaymentProvider
 
     public function assertAuthorized(string $reference): void
     {
-        $found = collect($this->recorded)->first(fn($item) => $item['dto']->reference === $reference);
+        $found = collect($this->recorded)->first(fn ($item) => $item['dto']->reference === $reference);
         Assert::assertNotNull($found, "Payment with reference {$reference} was not authorized.");
     }
 
@@ -66,7 +66,7 @@ class FakePaymentProvider extends PaymentProvider
             eventType: 'charge.success',
             reference: $payload['data']['reference'] ?? 'ref_fake',
             amount: $payload['data']['amount'] ?? 0,
-            currency: $payload['data']['currency'] ?? 'NGN',
+            currency: \App\Enums\Currency::tryFrom($payload['data']['currency'] ?? 'NGN') ?? \App\Enums\Currency::NGN,
             status: match ($payload['data']['status'] ?? 'success') {
                 'success' => \App\Enums\AuthorizationStatus::Success,
                 'failed' => \App\Enums\AuthorizationStatus::Failed,
@@ -98,6 +98,18 @@ class FakePaymentProvider extends PaymentProvider
             providerReference: 'ref_verified',
             rawResponse: ['status' => 'success']
         );
+    }
+
+    public function validate(Provider $provider, string $providerReference, \App\Domains\Payments\Providers\DataTransferObjects\PaymentValidateDTO $dto): ProviderResponse
+    {
+        $this->recorded[] = [
+            'type' => 'validate',
+            'provider' => $provider,
+            'reference' => $providerReference,
+            'data' => $dto->toArray(),
+        ];
+
+        return $this->responses[$providerReference] ?? $this->responses['*'] ?? throw new RuntimeException("No fake validate response defined for reference: {$providerReference}");
     }
 
     public function shouldReturnFee(int $fee): self

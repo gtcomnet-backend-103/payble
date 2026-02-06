@@ -141,7 +141,7 @@ it('prevents double processing of the same webhook event', function () {
         eventType: 'charge.success',
         reference: 'REF_1',
         amount: 1000,
-        currency: 'NGN',
+        currency: App\Enums\Currency::NGN,
         status: AuthorizationStatus::Success,
         rawPayload: []
     ));
@@ -178,7 +178,7 @@ it('handles webhook for non-existent payment reference', function () {
         eventType: 'charge.success',
         reference: 'UNKNOWN_REF',
         amount: 1000,
-        currency: 'NGN',
+        currency: App\Enums\Currency::NGN,
         status: AuthorizationStatus::Success,
         rawPayload: []
     ));
@@ -227,7 +227,7 @@ it('ignores already processed payments', function () {
         eventType: 'charge.success',
         reference: 'PAYSTACK_REF_SUCCESS',
         amount: 1000,
-        currency: 'NGN',
+        currency: App\Enums\Currency::NGN,
         status: AuthorizationStatus::Success,
         rawPayload: []
     ));

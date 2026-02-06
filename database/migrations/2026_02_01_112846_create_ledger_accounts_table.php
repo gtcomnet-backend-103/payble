@@ -19,7 +19,7 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->timestamps();
 
-            $table->unique(['slug', 'currency', 'holder_id', 'holder_type']);
+            $table->unique(['currency', 'holder_id', 'holder_type']);
         });
     }
 

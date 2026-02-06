@@ -7,6 +7,7 @@ namespace App\Domains\Payments\Actions;
 use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Models\Provider;
 use App\Models\WebhookEvent;
+use Illuminate\Support\Facades\Log;
 
 final class CreateWebhookEvent
 {

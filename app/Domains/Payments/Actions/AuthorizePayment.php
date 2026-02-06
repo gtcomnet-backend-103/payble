@@ -16,6 +16,7 @@ use App\Models\PaymentIntent;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use function Livewire\store;
 
 final class AuthorizePayment
 {
@@ -29,9 +30,9 @@ final class AuthorizePayment
      *
      * @throws Exception
      */
-    public function execute(string $reference, PaymentChannel $channel): AuthorizationAttempt
+    public function execute(string $reference, PaymentChannel $channel, array $data = []): AuthorizationAttempt
     {
-        return DB::transaction(function () use ($reference, $channel) {
+        return DB::transaction(function () use ($reference, $channel, $data) {
             // 1. Resolve and lock the Payment record
             $payment = PaymentIntent::where('reference', $reference)
                 ->lockForUpdate()
@@ -66,12 +67,17 @@ final class AuthorizePayment
                 currency: $payment->currency,
                 channel: $channel,
                 customer: new CustomerDTO(
-                    $payment->customer->first_name,
-                    $payment->customer->last_name,
-                    $payment->customer->email,
-                    $payment->customer->phone,
+                    firstName: $payment->customer->first_name,
+                    lastName: $payment->customer->last_name,
+                    email: $payment->customer->email,
+                    phone: $payment->customer->phone
                 ),
-                metadata: $payment->metadata ?? []
+                metadata: $payment->metadata ?? [], // Keep metadata for actual custom data
+                channelDetails: match ($channel) {
+                    PaymentChannel::Card => $data['card'] ?? [],
+                    PaymentChannel::BankTransfer => [], // No details needed for bank transfer init
+                    default => []
+                }
             );
 
             $providerResponse = PaymentProvider::authorize($provider, $dto);

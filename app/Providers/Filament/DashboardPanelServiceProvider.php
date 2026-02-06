@@ -31,6 +31,7 @@ final class DashboardPanelServiceProvider extends PanelProvider
             ->default()
             ->id('dashboard')
             ->path('dashboard')
+            ->viteTheme('resources/css/filament/dashboard/theme.css')
             ->login()
             ->registration()
             ->emailVerification(isRequired: false)

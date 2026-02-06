@@ -6,6 +6,7 @@ namespace App\Listeners;
 
 use App\Events\WebhookReceived;
 use App\Jobs\ProcessWebhook;
+use Illuminate\Support\Facades\Log;
 
 final class DispatchWebhookProcessing
 {

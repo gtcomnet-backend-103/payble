@@ -1,0 +1,90 @@
+### API Configuration
+@baseUrl = http://rabbitapp.test
+@apiKey = sk_test_your_lookup_key_here
+@reference = REF_1001001008788i0ej
+
+### 1. Initialize Payment
+# Create a new payment intent for a customer
+POST {{baseUrl}}/api/payments
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "amount": 500000,
+    "email": "customer@example.com",
+    "currency": "NGN",
+    "reference": "{{reference}}",
+    "metadata": {
+        "order_id": "12345"
+    }
+}
+
+### 2. Authorize Payment (Card)
+# Use this to initiate a card payment.
+POST {{baseUrl}}/api/payments/{{reference}}/authorize
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "channel": "card",
+    "card": {
+        "number": "4084084084084081",
+        "cvv": "408",
+        "expiry_month": "02",
+        "expiry_year": "27"
+    }
+}
+
+### 3. Authorize Payment (Bank Transfer)
+# Use this to initiate a bank transfer payment.
+POST {{baseUrl}}/api/payments/{{reference}}/authorize
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "channel": "bank_transfer"
+}
+
+### 4. Validate Payment (OTP/PIN)
+# Required if the authorization step returns 'pending_otp' or 'pending_pin'
+POST {{baseUrl}}/api/payments/{{reference}}/validate
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "otp": "123456"
+}
+
+### 5. Get Transaction Details
+# Retrieve the full transaction record once it is completed or for status polling
+GET {{baseUrl}}/api/transactions/{{reference}}
+Authorization: Bearer {{apiKey}}
+Accept: application/json
+
+### 6. Get Current User/Business
+GET {{baseUrl}}/api/user
+Authorization: Bearer {{apiKey}}
+Accept: application/json
+
+### 7. Provider Webhook
+# Simulate a webhook from a provider (e.g. Paystack)
+# Note: You may need to disable CSRF or satisfy signature requirements for this to work locally.
+POST {{baseUrl}}/api/webhooks/paystack
+Content-Type: application/json
+Accept: application/json
+
+{
+    "event": "charge.success",
+    "data": {
+        "reference": "{{reference}}",
+        "status": "success",
+        "amount": 500000,
+        "customer": {
+            "email": "customer@example.com"
+        }
+    }
+}

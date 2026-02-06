@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -18,7 +20,7 @@ return new class extends Migration
             $table->unsignedBigInteger('amount');
             $table->string('currency', 3);
             $table->string('status');
-            $table->string('reference')->unique();
+            $table->string('reference');
             $table->string('mode');
             $table->string('channel')->nullable();
             $table->string('ip_address')->nullable();
@@ -27,6 +29,8 @@ return new class extends Migration
             $table->json('authorization')->nullable();
             $table->string('message')->nullable();
             $table->timestamps();
+
+            $table->unique(['business_id', 'reference']);
         });
     }
 

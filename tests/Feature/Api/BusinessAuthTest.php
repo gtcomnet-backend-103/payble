@@ -35,6 +35,12 @@ it('authenticates a business using a secret live key', function () {
     $response = $this->withHeader('Authorization', "Bearer {$key}")
         ->postJson('/api/payments/REF_NONEXISTENT/authorize', [
             'channel' => 'card',
+            'card' => [
+                'number' => '1234567890123456',
+                'cvv' => '123',
+                'expiry_month' => '12',
+                'expiry_year' => '30',
+            ],
         ]);
 
     // PaymentController returns 400 for errors in update (transaction not found)
@@ -55,6 +61,12 @@ it('authenticates a business using a public test key', function () {
     $response = $this->withHeader('Authorization', "Bearer {$key}")
         ->postJson('/api/payments/REF_NONEXISTENT/authorize', [
             'channel' => 'card',
+            'card' => [
+                'number' => '1234567890123456',
+                'cvv' => '123',
+                'expiry_month' => '12',
+                'expiry_year' => '30',
+            ],
         ]);
 
     $response->assertStatus(400);
@@ -63,11 +75,17 @@ it('authenticates a business using a public test key', function () {
 });
 
 it('fails with 401 for valid format but non-existent lookup key', function () {
-    $prefix = 's' . 'k_t' . 'est_';
+    $prefix = 's'.'k_t'.'est_';
     $lookupKey = config('api.test_lookup_key');
     $response = $this->withHeader('Authorization', "Bearer {$prefix}{$lookupKey}")
         ->postJson('/api/payments/REF_NONEXISTENT/authorize', [
             'channel' => 'card',
+            'card' => [
+                'number' => '1234567890123456',
+                'cvv' => '123',
+                'expiry_month' => '12',
+                'expiry_year' => '30',
+            ],
         ]);
 
     $response->assertStatus(401)
@@ -81,12 +99,18 @@ it('fails with 401 if prefix is tampered with', function () {
         ->first();
 
     // Use 'pk' instead of 'sk' for a secret token
-    $prefix = 'p' . 'k_l' . 'ive_';
+    $prefix = 'p'.'k_l'.'ive_';
     $key = "{$prefix}{$token->lookup_key}";
 
     $response = $this->withHeader('Authorization', "Bearer {$key}")
         ->postJson('/api/payments/REF_NONEXISTENT/authorize', [
             'channel' => 'card',
+            'card' => [
+                'number' => '1234567890123456',
+                'cvv' => '123',
+                'expiry_month' => '12',
+                'expiry_year' => '30',
+            ],
         ]);
 
     $response->assertStatus(401)

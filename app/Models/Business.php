@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -46,6 +46,8 @@ final class Business extends Authenticatable
         'name',
         'email',
         'owner_id',
+        'webhook_url',
+        'verified_at',
     ];
 
     public function owner(): BelongsTo
@@ -69,5 +71,17 @@ final class Business extends Authenticatable
     public function apiTokens(): HasMany
     {
         return $this->hasMany(ApiToken::class);
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->verified_at !== null;
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'verified_at' => 'immutable_datetime',
+        ];
     }
 }

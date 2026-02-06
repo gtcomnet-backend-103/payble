@@ -43,7 +43,7 @@ final class RequestPayment
             'first_name' => ['sometimes', 'nullable', 'string', 'max:50'],
             'last_name' => ['sometimes', 'nullable', 'string', 'max:50'],
             'currency' => ['nullable', 'string', Rule::enum(Currency::class)],
-            'reference' => ['nullable', 'string', 'max:100'],
+            'reference' => ['nullable', 'string', 'max:100', Rule::unique('transactions', 'reference')->where('business_id', $business->getKey())],
             'bearer' => ['nullable', 'string', Rule::enum(FeeBearer::class)],
             'metadata' => ['nullable', 'array'],
         ])->validate();
@@ -54,7 +54,7 @@ final class RequestPayment
             $currency = Currency::tryFrom($data['currency'] ?? 'NGN') ?? Currency::NGN;
             $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? ($data['mode'] ?? 'test')) ?? PaymentMode::Test;
             $bearer = FeeBearer::tryFrom($data['bearer'] ?? 'merchant') ?? FeeBearer::Merchant;
-            $reference = $data['reference'] ?? 'TRX_' . Str::random(10);
+            $reference = $data['reference'] ?? 'TRX_'.Str::random(10);
 
             $paymentIntent = PaymentIntent::create([
                 'business_id' => $business->id,

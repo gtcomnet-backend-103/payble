@@ -38,6 +38,13 @@ final class LedgerEntry extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::created(function (self $entry) {
+            $entry->account()->increment('balance', $entry->amount);
+        });
+    }
+
     protected $fillable = [
         'ledger_account_id',
         'transaction_id',

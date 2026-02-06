@@ -10,16 +10,15 @@ use App\Models\Provider;
 use Illuminate\Support\Facades\App;
 use InvalidArgumentException;
 
-class ProviderResolver
+final class ProviderResolver
 {
-    /** @var array<string, class-string<ProviderAdapter>> */
-    private array $map = [
-        'paystack' => PaystackAdapter::class,
-    ];
-
     public function resolve(Provider $provider): ProviderAdapter
     {
-        $class = $this->map[$provider->identifier] ?? null;
+        $map = config('payment.adapters', [
+            'paystack' => PaystackAdapter::class,
+        ]);
+
+        $class = $map[$provider->identifier] ?? null;
 
         if (! $class) {
             throw new InvalidArgumentException("No adapter found for provider: {$provider->identifier}");

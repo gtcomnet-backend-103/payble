@@ -15,6 +15,7 @@ final class PaymentAuthorizeDTO
         public Currency $currency,
         public PaymentChannel $channel,
         public CustomerDTO $customer,
-        public array $metadata = []
+        public array $metadata = [],
+        public array $channelDetails = []
     ) {}
 }

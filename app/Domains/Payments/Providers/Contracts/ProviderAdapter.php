@@ -19,5 +19,7 @@ interface ProviderAdapter
 
     public function verifyTransaction(string $reference): ProviderResponse;
 
+    public function validate(string $providerReference, \App\Domains\Payments\Providers\DataTransferObjects\PaymentValidateDTO $dto): ProviderResponse;
+
     public function getFee(PaymentChannel $channel, int $amount): int;
 }

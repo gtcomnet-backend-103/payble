@@ -45,6 +45,11 @@ return [
             'provider' => 'users',
         ],
 
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'admins',
+        ],
+
         'business' => [
             'driver' => 'sanctum',
             'provider' => 'businesses',
@@ -72,6 +77,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'admins' => [
+            'driver' => 'eloquent',
+            'model' => env('AUTH_MODEL', \App\Models\Admin::class),
         ],
 
         'businesses' => [

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use RuntimeException;
 
 /**
  * @property int $id
@@ -27,7 +28,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property array<array-key, mixed>|null $raw_response
  * @property array<array-key, mixed>|null $metadata
  * @property \Carbon\CarbonImmutable|null $created_at
+ * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
+ * @property \Carbon\CarbonImmutable|null $completed_at
  * @property-read string|null $action
  * @property-read array $authorization
  * @property-read array $bank_details
@@ -54,6 +57,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereRawResponse($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereCompletedAt($value)
  *
  * @mixin \Eloquent
  */
@@ -75,6 +79,7 @@ final class AuthorizationAttempt extends Model
         'metadata',
         'provider_fee',
         'amount',
+        'completed_at',
     ];
 
     /**
@@ -109,7 +114,23 @@ final class AuthorizationAttempt extends Model
             'raw_request' => 'array',
             'raw_response' => 'array',
             'metadata' => 'array',
+            'completed_at' => 'immutable_datetime',
         ];
+    }
+
+    public function transitionTo(AuthorizationStatus $target): bool
+    {
+        if (! $this->status->canTransitionTo($target)) {
+            throw new RuntimeException("Invalid status transition from {$this->status->value} to {$target->value}");
+        }
+
+        $data = ['status' => $target];
+
+        if (in_array($target, [AuthorizationStatus::Success, AuthorizationStatus::Failed], true)) {
+            $data['completed_at'] = now();
+        }
+
+        return (bool) $this->update($data);
     }
 
     /**
@@ -132,7 +153,7 @@ final class AuthorizationAttempt extends Model
      */
     protected function bankDetails(): Attribute
     {
-        return Attribute::get(fn(): array => $this->raw_response['bank_details'] ?? []);
+        return Attribute::get(fn (): array => $this->raw_response['bank_details'] ?? []);
     }
 
     /**
@@ -141,17 +162,9 @@ final class AuthorizationAttempt extends Model
     protected function authorization(): Attribute
     {
         return Attribute::get(
-            fn(): array => $this->channel === PaymentChannel::BankTransfer
+            fn (): array => $this->channel === PaymentChannel::BankTransfer
                 ? $this->bank_details
                 : []
         );
-    }
-    public function transitionTo(AuthorizationStatus $target): bool
-    {
-        if (! $this->status->canTransitionTo($target)) {
-            throw new \RuntimeException("Invalid status transition from {$this->status->value} to {$target->value}");
-        }
-
-        return (bool) $this->update(['status' => $target]);
     }
 }

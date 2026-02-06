@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $holder_id
  * @property AccountType $type
  * @property string $currency
+ * @property int $balance
  * @property array<array-key, mixed>|null $metadata
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
@@ -46,6 +47,7 @@ final class LedgerAccount extends Model
         'holder_type',
         'type',
         'currency',
+        'balance',
         'metadata',
     ];
 
@@ -54,6 +56,7 @@ final class LedgerAccount extends Model
         return [
             'metadata' => 'array',
             'type' => AccountType::class,
+            'balance' => 'integer',
         ];
     }
 
@@ -67,7 +70,7 @@ final class LedgerAccount extends Model
         return $this->hasMany(LedgerEntry::class);
     }
 
-    public function balance(): int
+    public function getDerivedBalance(): int
     {
         return (int) $this->entries()->sum('amount');
     }

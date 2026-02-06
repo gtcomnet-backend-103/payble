@@ -21,9 +21,6 @@ final class ProcessWebhook implements ShouldQueue
 
     public function __construct(public int $webhookEventId) {}
 
-    /**
-     * @param ProcessPaymentAttempt $action
-     */
     public function handle(ProcessPaymentAttempt $action): void
     {
         $event = WebhookEvent::query()->findOrFail($this->webhookEventId);
@@ -45,7 +42,7 @@ final class ProcessWebhook implements ShouldQueue
             ->first();
 
         if (is_null($attempt)) {
-            Log::warning("Webhook unmatched: {$webhookPayloadDTO->reference}");
+            Log::warning("Webhook unmatched {$event->provider}: {$webhookPayloadDTO->reference}");
             $event->update([
                 'processed_at' => now(),
                 'feedback' => "No payment attempt with reference [$webhookPayloadDTO->reference] found",
@@ -67,7 +64,10 @@ final class ProcessWebhook implements ShouldQueue
         }
 
         // 3. Delegate Processing
-        $processed = $action->execute($attempt);
+        $processed = match ($event->event_type) {
+            'charge.success' => $action->execute($attempt),
+            default => false
+        };
 
         if ($processed) {
             $event->update([

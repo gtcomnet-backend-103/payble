@@ -7,8 +7,8 @@
     "license": "MIT",
     "require": {
         "php": "^8.4.0",
-        "filament/filament": "^5.1.3",
-        "laravel/framework": "^12.49.0",
+        "filament/filament": "^5.2.0",
+        "laravel/framework": "^12.50.0",
         "laravel/sanctum": "^4.3",
         "nunomaduro/essentials": "^1.0.1",
         "ext-bcmath": "*"
@@ -17,9 +17,9 @@
         "barryvdh/laravel-ide-helper": ">=3.6.1",
         "driftingly/rector-laravel": "^2.1.9",
         "fakerphp/faker": "^1.24.1",
-        "larastan/larastan": "^3.9.1",
+        "larastan/larastan": "^3.9.2",
         "laravel/boost": "^1.8.10",
-        "laravel/pail": "^1.2.4",
+        "laravel/pail": "^1.2.5",
         "laravel/pint": "^1.27.0",
         "mockery/mockery": "^1.6.12",
         "nunomaduro/collision": "^8.8.3",

@@ -13,7 +13,7 @@ final class WebhookPayloadDTO
         public string $eventType,
         public string $reference,
         public int $amount,
-        public string $currency,
+        public \App\Enums\Currency $currency,
         public AuthorizationStatus $status,
         public array $rawPayload,
         public array $metadata = []

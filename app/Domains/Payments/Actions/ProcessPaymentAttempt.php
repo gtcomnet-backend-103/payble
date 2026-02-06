@@ -16,7 +16,7 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-final readonly class ProcessPaymentAttempt
+final class ProcessPaymentAttempt
 {
     public function __construct(
         private RecordPaymentLedgerPostings $recordLedger
@@ -35,6 +35,13 @@ final readonly class ProcessPaymentAttempt
         // 2. External Provider Verification
         try {
             $verificationResponse = PaymentProvider::verifyTransaction($provider, $attempt->provider_reference);
+
+            if ($verificationResponse->status->is(AuthorizationStatus::Failed)) {
+                $attempt->transitionTo(AuthorizationStatus::Failed);
+                Log::warning("Transaction failed failed from provider {$provider->name}: {$attempt->provider_reference}");
+
+                return false;
+            }
 
             if (! $verificationResponse->status->is(AuthorizationStatus::Success)) {
                 Log::warning("Transaction not yet successful from provider {$provider->name}: {$attempt->provider_reference}");

@@ -72,6 +72,12 @@ it('authorizes a card payment with empty authorization array', function () {
 
     $response = $this->postJson("/api/payments/{$payment->reference}/authorize", [
         'channel' => 'card',
+        'card' => [
+            'number' => '1234567890123456',
+            'cvv' => '123',
+            'expiry_month' => '12',
+            'expiry_year' => '30',
+        ],
     ]);
 
     $response->assertStatus(200)
@@ -150,6 +156,12 @@ it('returns dynamic action if required', function () {
 
     $response = $this->postJson("/api/payments/{$payment->reference}/authorize", [
         'channel' => 'card',
+        'card' => [
+            'number' => '1234567890123456',
+            'cvv' => '123',
+            'expiry_month' => '12',
+            'expiry_year' => '30',
+        ],
     ]);
 
     $response->assertStatus(200)
@@ -173,12 +185,28 @@ it('is idempotent per channel', function () {
     ));
 
     // First call
-    $this->postJson("/api/payments/{$payment->reference}/authorize", ['channel' => 'card']);
+    $this->postJson("/api/payments/{$payment->reference}/authorize", [
+        'channel' => 'card',
+        'card' => [
+            'number' => '1234567890123456',
+            'cvv' => '123',
+            'expiry_month' => '12',
+            'expiry_year' => '30',
+        ],
+    ]);
 
     $countBefore = AuthorizationAttempt::count();
 
     // Second call
-    $response = $this->postJson("/api/payments/{$payment->reference}/authorize", ['channel' => 'card']);
+    $response = $this->postJson("/api/payments/{$payment->reference}/authorize", [
+        'channel' => 'card',
+        'card' => [
+            'number' => '1234567890123456',
+            'cvv' => '123',
+            'expiry_month' => '12',
+            'expiry_year' => '30',
+        ],
+    ]);
 
     $response->assertStatus(200);
     $this->assertEquals($countBefore, AuthorizationAttempt::count());
@@ -194,6 +222,12 @@ it('rejects authorization if already successful', function () {
 
     $response = $this->postJson("/api/payments/{$payment->reference}/authorize", [
         'channel' => 'card',
+        'card' => [
+            'number' => '1234567890123456',
+            'cvv' => '123',
+            'expiry_month' => '12',
+            'expiry_year' => '30',
+        ],
     ]);
 
     $response->assertStatus(400)
