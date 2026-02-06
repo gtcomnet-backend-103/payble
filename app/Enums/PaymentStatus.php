@@ -38,4 +38,13 @@ enum PaymentStatus: string
     {
         return in_array($target, $this->transitions(), true);
     }
+
+    public function isFinal(): bool
+    {
+        return in_array($this, [
+            self::Success,
+            self::Failed,
+            self::Reversed,
+        ]);
+    }
 }

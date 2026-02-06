@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\Provider;
 use Illuminate\Console\Command;
 
-final class SyncPaymentProviders extends Command
+final class SyncPaymentProvidersCommand extends Command
 {
     /**
      * The name and signature of the console command.
@@ -40,7 +41,7 @@ final class SyncPaymentProviders extends Command
         $this->info('Starting provider synchronization...');
 
         foreach ($providers as $providerData) {
-            $provider = \App\Models\Provider::updateOrCreate(
+            $provider = Provider::updateOrCreate(
                 ['identifier' => $providerData['identifier']],
                 [
                     'name' => $providerData['name'],

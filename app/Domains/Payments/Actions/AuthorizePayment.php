@@ -51,7 +51,7 @@ final class AuthorizePayment
                 ->first();
 
             if ($existingAttempt) {
-                return $existingAttempt;
+                throw new Exception("Payment already authorized for reference: {$reference}");
             }
 
             // 4. Select provider and resolve fee
@@ -102,7 +102,7 @@ final class AuthorizePayment
     public function validatePreconditions(PaymentIntent $payment, PaymentChannel $channel): void
     {
         if (! PaymentStatus::Initiated->is($payment->status)) {
-            throw new Exception('Payment has already been successful.', 400);
+            throw new Exception('Payment has already been authorized.', 400);
         }
     }
 

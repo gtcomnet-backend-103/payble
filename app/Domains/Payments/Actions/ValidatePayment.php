@@ -45,7 +45,7 @@ final class ValidatePayment
             // We need the *latest* one to get the provider reference and context.
             // It might be Pending, PendingOtp, PendingPin, etc.
             $latestAttempt = AuthorizationAttempt::where('payment_intent_id', $payment->id)
-                ->pending()
+                ->validating()
                 ->latest()
                 ->first();
 

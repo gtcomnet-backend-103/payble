@@ -34,7 +34,7 @@ it('calls charge endpoint and returns success response', function () {
         currency: Currency::NGN,
         channel: PaymentChannel::Card,
         customer: new CustomerDTO('John', 'Doe', 'john@example.com', null),
-        metadata: ['authorization_code' => 'auth_code_123']
+        channelDetails: ['card' => []]
     );
 
     // Act
@@ -48,7 +48,7 @@ it('calls charge endpoint and returns success response', function () {
         return $request->url() === 'https://api.paystack.co/charge'
             && $request['amount'] === 10000
             && $request['email'] === 'john@example.com'
-            && $request['authorization_code'] === 'auth_code_123';
+            && ! empty($request['card']);
     });
 });
 

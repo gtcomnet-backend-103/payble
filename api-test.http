@@ -1,6 +1,6 @@
 ### API Configuration
-@baseUrl = http://rabbitapp.test
-@apiKey = sk_test_your_lookup_key_here
+@baseUrl = http://payable.test
+@apiKey = your_test_key
 @reference = REF_1001001008788i0ej
 
 ### 1. Initialize Payment

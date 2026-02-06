@@ -9,6 +9,7 @@ use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentStatus;
+use App\Enums\TransactionStatus;
 use App\Models\AuthorizationAttempt;
 use App\Models\Provider;
 use App\Models\Transaction;
@@ -16,7 +17,7 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-final class ProcessPaymentAttempt
+class ProcessPaymentAttempt
 {
     public function __construct(
         private RecordPaymentLedgerPostings $recordLedger
@@ -25,7 +26,16 @@ final class ProcessPaymentAttempt
     public function execute(AuthorizationAttempt $attempt): bool
     {
         // 1. Pre-validation & Idempotency Check
-        if ($attempt->paymentIntent->status->is(PaymentStatus::Success)) {
+        $attempt = AuthorizationAttempt::query()
+            ->where('provider_reference', $attempt->provider_reference)
+            ->whereIn('status', [
+                AuthorizationStatus::Pending,
+                AuthorizationStatus::Success,
+                AuthorizationStatus::Failed,
+                AuthorizationStatus::PendingTransfer,
+            ])->first();
+
+        if (! $attempt) {
             return false;
         }
 
@@ -36,14 +46,7 @@ final class ProcessPaymentAttempt
         try {
             $verificationResponse = PaymentProvider::verifyTransaction($provider, $attempt->provider_reference);
 
-            if ($verificationResponse->status->is(AuthorizationStatus::Failed)) {
-                $attempt->transitionTo(AuthorizationStatus::Failed);
-                Log::warning("Transaction failed failed from provider {$provider->name}: {$attempt->provider_reference}");
-
-                return false;
-            }
-
-            if (! $verificationResponse->status->is(AuthorizationStatus::Success)) {
+            if (! $verificationResponse->status->isFinal()) {
                 Log::warning("Transaction not yet successful from provider {$provider->name}: {$attempt->provider_reference}");
 
                 return false;
@@ -57,27 +60,24 @@ final class ProcessPaymentAttempt
         // 3. Atomic State Management and Ledger Posting
         return DB::transaction(function () use ($attempt, $payment, $provider) {
             // Re-check attempt status inside transaction for absolute safety
-            $attempt->refresh();
-            if ($attempt->paymentIntent->status->is(PaymentStatus::Success)) {
+            if ($attempt->completed) {
                 return true;
             }
 
             // A: Transaction Management (Ensures uniqueness and avoids race conditions)
-            $transaction = Transaction::firstOrCreate(
-                ['payment_intent_id' => $payment->id],
-                [
-                    'business_id' => $payment->business_id,
-                    'amount' => $payment->amount,
-                    'currency' => $payment->currency,
-                    'status' => PaymentStatus::Pending,
-                    'reference' => $payment->reference,
-                    'channel' => $attempt->channel,
-                    'mode' => $payment->mode,
-                ]
-            );
+            $transaction = Transaction::firstOrCreate([
+                'reference' => $payment->reference,
+                'channel' => $attempt->channel,
+            ], [
+                'business_id' => $payment->business_id,
+                'amount' => $payment->amount,
+                'currency' => $payment->currency,
+                'status' => TransactionStatus::Pending,
+                'mode' => $payment->mode,
+            ]);
 
             // B: Idempotency (If transaction is already successful, we skip ledger and state updates)
-            if ($transaction->status->is(PaymentStatus::Success)) {
+            if ($transaction->status->is(TransactionStatus::Success)) {
                 return true;
             }
 
@@ -106,8 +106,9 @@ final class ProcessPaymentAttempt
             if (! $attempt->status->is(AuthorizationStatus::Success)) {
                 $attempt->transitionTo(AuthorizationStatus::Success);
             }
-            $transaction->transitionTo(PaymentStatus::Success);
+            $transaction->transitionTo(TransactionStatus::Success);
             $payment->transitionTo(PaymentStatus::Success);
+            $attempt->markAsComplete();
 
             return true;
         });

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Api;
 
 use App\Enums\PaymentStatus;
+use App\Enums\TransactionStatus;
 use App\Models\Business;
 use App\Models\PaymentIntent;
 use App\Models\Transaction;
@@ -33,11 +34,10 @@ beforeEach(function () {
 
     $this->transaction = Transaction::create([
         'business_id' => $this->business->id,
-        'payment_intent_id' => $this->payment->id,
+        'reference' => $this->payment->reference,
         'amount' => 1000,
         'currency' => 'NGN',
-        'status' => PaymentStatus::Pending,
-        'reference' => 'REF_123',
+        'status' => TransactionStatus::Pending,
         'mode' => 'test',
     ]);
 });

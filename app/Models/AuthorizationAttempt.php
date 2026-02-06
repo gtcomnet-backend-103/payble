@@ -28,7 +28,6 @@ use RuntimeException;
  * @property array<array-key, mixed>|null $raw_response
  * @property array<array-key, mixed>|null $metadata
  * @property \Carbon\CarbonImmutable|null $created_at
- * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
  * @property \Carbon\CarbonImmutable|null $completed_at
  * @property-read string|null $action
@@ -39,7 +38,7 @@ use RuntimeException;
  *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt pending()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt DQWpending()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereAmount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereChannel($value)
@@ -95,6 +94,19 @@ final class AuthorizationAttempt extends Model
         ]);
     }
 
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeValidating($query)
+    {
+        return $query->whereIn('status', [
+            AuthorizationStatus::PendingOtp,
+            AuthorizationStatus::PendingPhone,
+            AuthorizationStatus::PendingPin, // Optimistic success handling
+        ]);
+    }
+
     public function paymentIntent(): BelongsTo
     {
         return $this->belongsTo(PaymentIntent::class);
@@ -118,6 +130,13 @@ final class AuthorizationAttempt extends Model
         ];
     }
 
+    public function markAsComplete(): bool
+    {
+        return $this->update([
+            'completed_at' => now(),
+        ]);
+    }
+
     public function transitionTo(AuthorizationStatus $target): bool
     {
         if (! $this->status->canTransitionTo($target)) {
@@ -125,10 +144,6 @@ final class AuthorizationAttempt extends Model
         }
 
         $data = ['status' => $target];
-
-        if (in_array($target, [AuthorizationStatus::Success, AuthorizationStatus::Failed], true)) {
-            $data['completed_at'] = now();
-        }
 
         return (bool) $this->update($data);
     }
@@ -149,11 +164,11 @@ final class AuthorizationAttempt extends Model
     }
 
     /**
-     * @return Attribute<array<string, mixed>, never>
+     * @return Attribute<bool, never>
      */
-    protected function bankDetails(): Attribute
+    protected function completed(): Attribute
     {
-        return Attribute::get(fn (): array => $this->raw_response['bank_details'] ?? []);
+        return Attribute::get(fn (): bool => $this->completed_at !== null);
     }
 
     /**
@@ -163,7 +178,7 @@ final class AuthorizationAttempt extends Model
     {
         return Attribute::get(
             fn (): array => $this->channel === PaymentChannel::BankTransfer
-                ? $this->bank_details
+                ? $this->raw_response['bank_details'] ?? []
                 : []
         );
     }

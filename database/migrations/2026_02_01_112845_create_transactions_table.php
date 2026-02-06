@@ -16,18 +16,14 @@ return new class extends Migration
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('business_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('payment_intent_id')->constrained()->cascadeOnDelete();
             $table->unsignedBigInteger('amount');
             $table->string('currency', 3);
             $table->string('status');
             $table->string('reference');
             $table->string('mode');
             $table->string('channel')->nullable();
-            $table->string('ip_address')->nullable();
             $table->unsignedBigInteger('fees')->default(0);
             $table->json('metadata')->nullable();
-            $table->json('authorization')->nullable();
-            $table->string('message')->nullable();
             $table->timestamps();
 
             $table->unique(['business_id', 'reference']);

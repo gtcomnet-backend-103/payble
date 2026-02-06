@@ -12,6 +12,7 @@ use App\Enums\AuthorizationStatus;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
+use App\Enums\TransactionStatus;
 use App\Models\Business;
 use App\Models\PaymentIntent;
 use App\Models\Provider;
@@ -75,9 +76,9 @@ it('processes a successful payment attempt', function () {
     expect($this->attempt->status)->toBe(AuthorizationStatus::Success);
     expect($this->payment->status)->toBe(PaymentStatus::Success);
 
-    $transaction = Transaction::where('payment_intent_id', $this->payment->id)->first();
+    $transaction = Transaction::where('reference', $this->payment->reference)->first();
     expect($transaction)->not->toBeNull();
-    expect($transaction->status)->toBe(PaymentStatus::Success);
+    expect($transaction->status)->toBe(TransactionStatus::Success);
     expect($transaction->amount)->toBe(1000);
 });
 
@@ -138,7 +139,6 @@ it('ensures transaction exists (idempotency)', function () {
     // If transaction already exists, it shouldn't create a new one, but use it.
     $existingTx = Transaction::create([
         'business_id' => $this->business->id,
-        'payment_intent_id' => $this->payment->id,
         'amount' => 1000,
         'currency' => 'NGN',
         'status' => 'pending',
@@ -158,7 +158,7 @@ it('ensures transaction exists (idempotency)', function () {
     expect($result)->toBeTrue();
 
     $existingTx->refresh();
-    expect($existingTx->status)->toBe(PaymentStatus::Success);
+    expect($existingTx->status)->toBe(TransactionStatus::Success);
     expect(Transaction::count())->toBe(1);
 });
 
@@ -174,7 +174,7 @@ it('ensures no double-posting to ledger (idempotent)', function () {
     $action = app(ProcessPaymentAttempt::class);
     $action->execute($this->attempt);
 
-    $transaction = Transaction::where('payment_intent_id', $this->payment->id)->first();
+    $transaction = Transaction::where('reference', $this->payment->reference)->first();
     $entryCount = $transaction->ledgerEntries()->count();
     expect($entryCount)->toBeGreaterThan(0);
 
@@ -199,7 +199,7 @@ it('calculates split fees using integer math without penny loss', function () {
     $action = app(ProcessPaymentAttempt::class);
     $action->execute($this->attempt);
 
-    $transaction = Transaction::where('payment_intent_id', $this->payment->id)->first();
+    $transaction = Transaction::where('reference', $this->payment->reference)->first();
 
     // Verify Business Wallet receives Gross Amount (1000) and pays Merchant Fee (10)
     $businessWallet = app(\App\Domains\Ledger\Services\LedgerService::class)

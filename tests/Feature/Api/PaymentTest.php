@@ -44,11 +44,8 @@ it('creates a payment request with email', function () {
                 'reference',
                 'mode',
                 'metadata',
-                'message',
                 'channel',
-                'ip_address',
                 'fees',
-                'authorization',
                 'customer' => ['first_name', 'last_name', 'email', 'phone'],
             ],
         ])

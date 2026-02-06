@@ -2,17 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Domains\Payments\Providers\DataTransferObjects\BankDetailsDTO;
-use App\Domains\Payments\Providers\DataTransferObjects\ProviderResponse;
-use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
-use App\Models\AuthorizationAttempt;
 use App\Models\Business;
 use App\Models\FeeConfig;
 use App\Models\PaymentIntent;
-use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -28,49 +23,45 @@ beforeEach(function () {
     ]);
     $this->user->businesses()->attach($this->business);
     Sanctum::actingAs($this->business, ['*'], 'business');
-
-    $this->provider = Provider::create([
-        'name' => 'Test Provider',
-        'identifier' => 'test_provider',
-        'is_active' => true,
-        'is_healthy' => true,
-        'supported_channels' => [PaymentChannel::Card->value, PaymentChannel::BankTransfer->value],
-        'metadata' => ['fee_percentage' => 0.1],
-    ]);
+    Artisan::call('payment:providers-sync');
 
     FeeConfig::create([
         'channel' => PaymentChannel::Card,
-        'percentage' => 1.5,
-        'fixed_amount' => 100,
+        'percentage' => 0,
+        'fixed_amount' => 1000,
         'is_active' => true,
     ]);
 
     FeeConfig::create([
         'channel' => PaymentChannel::BankTransfer,
         'percentage' => 0,
-        'fixed_amount' => 50,
+        'fixed_amount' => 500,
         'is_active' => true,
     ]);
-
-    PaymentProvider::fake();
 });
 
-it('authorizes a card payment with empty authorization array', function () {
-
-    $payment = PaymentIntent::factory()->create([
-        'business_id' => $this->business->id,
-        'status' => PaymentStatus::Initiated,
-        'reference' => 'REF_123',
+it('can authorizes a card payment', function () {
+    Illuminate\Support\Facades\Http::fake([
+        'api.paystack.co/charge' => Illuminate\Support\Facades\Http::response([
+            'data' => [
+                'amount' => 10000,
+                'status' => 'success',
+            ],
+        ]),
+        'api.paystack.co/transaction/verify/*' => Illuminate\Support\Facades\Http::response([
+            'data' => [
+                'amount' => 10000,
+                'status' => 'success',
+            ],
+        ]),
+    ]);
+    $this->postJson('/api/payments', [
         'amount' => 10000,
+        'email' => 'test@email.com',
+        'reference' => 'ref-1234567890',
     ]);
 
-    PaymentProvider::fake()->shouldReturn(new ProviderResponse(
-        status: AuthorizationStatus::Success,
-        providerReference: 'TEST_PROV_REF',
-        rawResponse: ['status' => 'success']
-    ));
-
-    $response = $this->postJson("/api/payments/{$payment->reference}/authorize", [
+    $response = $this->postJson('/api/payments/ref-1234567890/authorize', [
         'channel' => 'card',
         'card' => [
             'number' => '1234567890123456',
@@ -83,7 +74,7 @@ it('authorizes a card payment with empty authorization array', function () {
     $response->assertStatus(200)
         ->assertJsonPath('status', AuthorizationStatus::Success->value)
         ->assertJsonPath('amount', 10000)
-        ->assertJsonPath('reference', 'REF_123')
+        ->assertJsonPath('reference', 'ref-1234567890')
         ->assertJsonPath('authorization', [])
         ->assertJsonStructure([
             'status',
@@ -95,66 +86,79 @@ it('authorizes a card payment with empty authorization array', function () {
         ]);
 });
 
-it('authorizes a bank transfer payment with details in authorization array', function () {
-
-    $payment = PaymentIntent::factory()->create([
-        'business_id' => $this->business->id,
-        'status' => PaymentStatus::Initiated,
-        'reference' => 'REF_456',
-        'amount' => 10000,
+it('can authorizes a bank transfer payment', function () {
+    Illuminate\Support\Facades\Http::fake([
+        'api.paystack.co/charge' => Illuminate\Support\Facades\Http::response([
+            'data' => [
+                'amount' => 10000,
+                'status' => 'success',
+                'bank' => [
+                    'account_number' => '1234567890',
+                    'account_name' => 'Test User',
+                    'name' => 'Test Bank',
+                ],
+            ],
+        ]),
+        'api.paystack.co/transaction/verify/*' => Illuminate\Support\Facades\Http::response([
+            'data' => [
+                'amount' => 10000,
+                'status' => 'success',
+            ],
+        ]),
     ]);
 
-    PaymentProvider::fake()->shouldReturn(new ProviderResponse(
-        status: AuthorizationStatus::PendingTransfer,
-        providerReference: 'TEST_BANK_REF',
-        bankDetails: new BankDetailsDTO(
-            accountNumber: '1234567890',
-            bankName: 'Test Bank',
-            accountName: 'Test Account'
-        ),
-        rawResponse: ['provider' => 'fake']
-    ));
+    $this->postJson('/api/payments', [
+        'amount' => 10000,
+        'email' => 'test@email.com',
+        'reference' => 'ref-1234567890',
+    ]);
 
-    $response = $this->postJson("/api/payments/{$payment->reference}/authorize", [
+    $response = $this->postJson('/api/payments/ref-1234567890/authorize', [
         'channel' => 'bank_transfer',
     ]);
 
     $response->assertStatus(200)
-        ->assertJsonPath('status', AuthorizationStatus::PendingTransfer->value)
-        ->assertJsonPath('reference', 'REF_456')
+        ->assertJsonPath('status', AuthorizationStatus::Success->value)
         ->assertJsonPath('amount', 10000)
+        ->assertJsonPath('reference', 'ref-1234567890')
+        ->assertJsonPath('authorization', [
+            'account_number' => '1234567890',
+            'bank_name' => 'Test Bank',
+            'account_name' => 'Test User',
+            'expires_at' => null,
+        ])
         ->assertJsonStructure([
             'status',
             'amount',
             'reference',
-            'customer',
+            'customer' => ['first_name', 'last_name', 'email', 'phone'],
             'fee',
-            'authorization' => ['account_number', 'bank_name'],
         ]);
-
-    $this->assertDatabaseHas('authorization_attempts', [
-        'payment_intent_id' => $payment->id,
-        'channel' => 'bank_transfer',
-        'status' => AuthorizationStatus::PendingTransfer->value,
-    ]);
 });
 
 it('returns dynamic action if required', function () {
-
-    $payment = PaymentIntent::factory()->create([
-        'business_id' => $this->business->id,
-        'status' => PaymentStatus::Initiated,
-        'reference' => 'REF_ACTION',
-        'amount' => 10000,
+    Illuminate\Support\Facades\Http::fake([
+        'api.paystack.co/charge' => Illuminate\Support\Facades\Http::response([
+            'data' => [
+                'amount' => 10000,
+                'status' => 'send_pin',
+            ],
+        ]),
+        'api.paystack.co/transaction/verify/*' => Illuminate\Support\Facades\Http::response([
+            'data' => [
+                'amount' => 10000,
+                'status' => 'send_pin',
+            ],
+        ]),
     ]);
 
-    PaymentProvider::fake()->shouldReturn(new ProviderResponse(
-        status: AuthorizationStatus::PendingPin,
-        providerReference: 'TEST_ACTION_REF',
-        rawResponse: ['foo' => 'bar']
-    ));
+    $this->postJson('/api/payments', [
+        'amount' => 10000,
+        'email' => 'test@email.com',
+        'reference' => 'ref-1234567890',
+    ]);
 
-    $response = $this->postJson("/api/payments/{$payment->reference}/authorize", [
+    $response = $this->postJson('/api/payments/ref-1234567890/authorize', [
         'channel' => 'card',
         'card' => [
             'number' => '1234567890123456',
@@ -165,51 +169,44 @@ it('returns dynamic action if required', function () {
     ]);
 
     $response->assertStatus(200)
-        ->assertJsonPath('reference', 'REF_ACTION')
+        ->assertJsonPath('reference', 'ref-1234567890')
         ->assertJsonPath('amount', 10000)
         ->assertJsonPath('action', 'pin');
 });
 
 it('is idempotent per channel', function () {
-
-    $payment = PaymentIntent::factory()->create([
-        'business_id' => $this->business->id,
-        'status' => PaymentStatus::Initiated,
-        'reference' => 'REF_789',
+    Illuminate\Support\Facades\Http::fake([
+        'api.paystack.co/charge' => Illuminate\Support\Facades\Http::response([
+            'data' => [
+                'amount' => 10000,
+                'status' => 'send_pin',
+            ],
+        ]),
+        'api.paystack.co/transaction/verify/*' => Illuminate\Support\Facades\Http::response([
+            'data' => [
+                'amount' => 10000,
+                'status' => 'send_pin',
+            ],
+        ]),
     ]);
 
-    $fake = PaymentProvider::fake();
-    $fake->shouldReturn(new ProviderResponse(
-        status: AuthorizationStatus::Success,
-        providerReference: 'IDEM_REF'
-    ));
-
-    // First call
-    $this->postJson("/api/payments/{$payment->reference}/authorize", [
-        'channel' => 'card',
-        'card' => [
-            'number' => '1234567890123456',
-            'cvv' => '123',
-            'expiry_month' => '12',
-            'expiry_year' => '30',
-        ],
+    $this->postJson('/api/payments', [
+        'amount' => 10000,
+        'email' => 'test@email.com',
+        'reference' => 'ref-1234567890',
     ]);
 
-    $countBefore = AuthorizationAttempt::count();
-
-    // Second call
-    $response = $this->postJson("/api/payments/{$payment->reference}/authorize", [
-        'channel' => 'card',
-        'card' => [
-            'number' => '1234567890123456',
-            'cvv' => '123',
-            'expiry_month' => '12',
-            'expiry_year' => '30',
-        ],
+    $this->postJson('/api/payments/ref-1234567890/authorize', [
+        'channel' => 'bank_transfer',
     ]);
 
-    $response->assertStatus(200);
-    $this->assertEquals($countBefore, AuthorizationAttempt::count());
+    Illuminate\Support\Facades\Http::assertSentCount(1);
+
+    $this->postJson('/api/payments/ref-1234567890/authorize', [
+        'channel' => 'bank_transfer',
+    ])->assertBadRequest();
+
+    Illuminate\Support\Facades\Http::assertSentCount(1);
 });
 
 it('rejects authorization if already successful', function () {
@@ -231,5 +228,5 @@ it('rejects authorization if already successful', function () {
     ]);
 
     $response->assertStatus(400)
-        ->assertJsonPath('message', 'Payment has already been successful.');
+        ->assertJsonPath('message', 'Payment has already been authorized.');
 });

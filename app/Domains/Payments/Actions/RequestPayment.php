@@ -8,6 +8,7 @@ use App\Enums\Currency;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentMode;
 use App\Enums\PaymentStatus;
+use App\Enums\TransactionStatus;
 use App\Models\Business;
 use App\Models\Customer;
 use App\Models\PaymentIntent;
@@ -70,11 +71,10 @@ final class RequestPayment
 
             return Transaction::create([
                 'business_id' => $business->id,
-                'payment_intent_id' => $paymentIntent->id,
+                'reference' => $paymentIntent->reference,
                 'amount' => $data['amount'],
                 'currency' => $currency,
-                'status' => PaymentStatus::Initiated,
-                'reference' => $reference,
+                'status' => TransactionStatus::Pending,
                 'mode' => $mode,
                 'metadata' => $data['metadata'] ?? [],
             ]);

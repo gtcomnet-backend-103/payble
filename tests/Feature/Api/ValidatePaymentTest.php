@@ -92,7 +92,7 @@ it('validates otp and finalizes payment', function () {
         'amount' => 5000,
     ]);
 
-    $attempt = AuthorizationAttempt::create([
+    AuthorizationAttempt::create([
         'payment_intent_id' => $payment->id,
         'provider_id' => $this->provider->id,
         'channel' => PaymentChannel::Card,
@@ -129,7 +129,7 @@ it('validates otp and finalizes payment', function () {
 
     // Transaction should be created (ProcessPaymentAttempt called)
     $this->assertDatabaseHas('transactions', [
-        'payment_intent_id' => $payment->id,
+        'reference' => $payment->reference,
         'status' => PaymentStatus::Success->value,
     ]);
 });

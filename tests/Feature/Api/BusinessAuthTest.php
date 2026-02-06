@@ -19,6 +19,7 @@ beforeEach(function () {
         'name' => 'Test Business',
         'email' => 'auth@business.com',
         'owner_id' => $this->user->id,
+        'verified_at' => now()
     ]);
 
     (new GenerateApiKeys())->execute($this->business);

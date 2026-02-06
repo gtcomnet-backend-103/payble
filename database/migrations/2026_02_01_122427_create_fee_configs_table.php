@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('business_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('channel');
+            $table->string('currency')->default('NGN');
             $table->integer('min_fee')->default(0);
             $table->integer('max_fee')->nullable();
             $table->decimal('percentage', 5, 2)->default(0);

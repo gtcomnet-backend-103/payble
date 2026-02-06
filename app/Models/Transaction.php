@@ -8,6 +8,7 @@ use App\Enums\Currency;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentMode;
 use App\Enums\PaymentStatus;
+use App\Enums\TransactionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -84,7 +85,7 @@ final class Transaction extends Model
 
     public function paymentIntent(): BelongsTo
     {
-        return $this->belongsTo(PaymentIntent::class);
+        return $this->belongsTo(PaymentIntent::class, 'reference', 'reference');
     }
 
     public function ledgerEntries(): HasMany
@@ -98,7 +99,7 @@ final class Transaction extends Model
             'amount' => 'integer',
             'fees' => 'integer',
             'currency' => Currency::class,
-            'status' => PaymentStatus::class,
+            'status' => TransactionStatus::class,
             'mode' => PaymentMode::class,
             'channel' => PaymentChannel::class,
             'metadata' => 'array',
@@ -106,7 +107,7 @@ final class Transaction extends Model
         ];
     }
 
-    public function transitionTo(PaymentStatus $target): bool
+    public function transitionTo(TransactionStatus $target): bool
     {
         if (! $this->status->canTransitionTo($target)) {
             throw new \RuntimeException("Invalid status transition from {$this->status->value} to {$target->value}");

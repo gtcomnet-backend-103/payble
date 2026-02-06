@@ -53,7 +53,7 @@ final class PaystackAdapter implements ProviderAdapter
             'failed' => AuthorizationStatus::Failed,
             'send_pin' => AuthorizationStatus::PendingPin,
             'send_otp' => AuthorizationStatus::PendingOtp,
-            'send_phone' => AuthorizationStatus::Pending,
+            'send_phone' => AuthorizationStatus::PendingPhone,
             default => AuthorizationStatus::Pending,
         };
 

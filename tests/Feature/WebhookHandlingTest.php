@@ -94,7 +94,7 @@ it('receives and processes a successful provider webhook', function () {
     expect($attempt->status)->toBe(AuthorizationStatus::Success);
 
     assertDatabaseHas('transactions', [
-        'payment_intent_id' => $payment->id,
+        'reference' => $payment->reference,
         'status' => 'success',
     ]);
 

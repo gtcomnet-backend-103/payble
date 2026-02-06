@@ -13,8 +13,9 @@ enum AuthorizationStatus: string
     case PendingOtp = 'pending_otp';
     case PendingTransfer = 'pending_transfer';
 
+    case PendingPhone = 'pending_phone';
 
-    public function is(AuthorizationStatus | string $status): bool
+    public function is(AuthorizationStatus|string $status): bool
     {
         $status = $status instanceof AuthorizationStatus ? $status : AuthorizationStatus::from($status);
 
@@ -38,5 +39,13 @@ enum AuthorizationStatus: string
     public function canTransitionTo(self $target): bool
     {
         return in_array($target, $this->transitions(), true);
+    }
+
+    public function isFinal(): bool
+    {
+        return in_array($this, [
+            self::Success,
+            self::Failed,
+        ]);
     }
 }

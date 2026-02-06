@@ -20,5 +20,5 @@ Route::post('/payments/{reference}/validate', ValidatePaymentController::class)-
 Route::get('/transactions/{reference}', [TransactionController::class, 'show'])->middleware('auth:business');
 
 Route::post('/webhooks/{provider:identifier}', WebhookController::class)
-//    ->middleware(VerifyWebhookSignature::class)
+    ->middleware(VerifyWebhookSignature::class)
     ->name('webhooks');

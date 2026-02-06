@@ -26,11 +26,8 @@ final class TransactionResource extends JsonResource
             'reference' => $this->reference,
             'mode' => $this->mode->value,
             'metadata' => $this->metadata,
-            'message' => $this->message,
             'channel' => $this->channel?->value,
-            'ip_address' => $this->ip_address,
             'fees' => $this->fees,
-            'authorization' => $this->authorization,
             'customer' => [
                 'first_name' => $this->paymentIntent->customer->first_name,
                 'last_name' => $this->paymentIntent->customer->last_name,

@@ -12,7 +12,7 @@ use App\Models\Provider;
 use PHPUnit\Framework\Assert;
 use RuntimeException;
 
-final class FakePaymentProvider extends PaymentProvider
+class FakePaymentProvider extends PaymentProvider
 {
     /** @var array<string, ProviderResponse> */
     protected array $responses = [];
