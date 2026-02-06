@@ -23,6 +23,7 @@ final class AuthorizePayment
     public function __construct(
         private SelectProvider $selectProvider,
         private ResolvePaymentFee $resolvePaymentFee,
+        private ProcessPaymentAttempt $processPaymentAttempt,
     ) {}
 
     /**
@@ -91,6 +92,10 @@ final class AuthorizePayment
                 ]),
                 'metadata' => array_merge($attempt->metadata ?? [], $providerResponse->metadata),
             ]);
+
+            if ($attempt->status->isFinal()) {
+                $this->processPaymentAttempt->execute($attempt);
+            }
 
             return $attempt;
         });
