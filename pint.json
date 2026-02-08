@@ -2,7 +2,8 @@
     "preset": "laravel",
     "notPath": [
         "tests/TestCase.php",
-        "tmp"
+        "tmp",
+        "app/Domains/Payments/Providers/Testing/FakePaymentProvider.php"
     ],
     "rules": {
         "array_push": true,

@@ -10,7 +10,7 @@ use App\Models\Provider;
 use Illuminate\Support\Facades\App;
 use InvalidArgumentException;
 
-class ProviderResolver
+final class ProviderResolver
 {
     public function resolve(Provider $provider): ProviderAdapter
     {

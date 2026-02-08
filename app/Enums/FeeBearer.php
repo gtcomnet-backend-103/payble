@@ -8,5 +8,4 @@ enum FeeBearer: string
 {
     case Merchant = 'merchant';
     case Customer = 'customer';
-    case Split = 'split';
 }

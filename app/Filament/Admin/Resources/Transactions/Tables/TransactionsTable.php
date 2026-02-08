@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Filament\Admin\Resources\Transactions\Tables;
 
 use App\Enums\PaymentMode;
-use App\Enums\PaymentStatus;
 use App\Enums\TransactionStatus;
 use App\Models\Business;
 use Filament\Tables\Columns\TextColumn;

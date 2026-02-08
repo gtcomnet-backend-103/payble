@@ -37,17 +37,4 @@ final class ProviderFactory extends Factory
             ],
         ];
     }
-
-    public function test(): self
-    {
-        return $this->state(function () {
-            return [
-                'name' => 'Test Provider',
-                'identifier' => 'test_provider',
-                'is_active' => true,
-                'is_healthy' => true,
-                'supported_channels' => ['card'],
-            ];
-        });
-    }
 }

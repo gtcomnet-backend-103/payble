@@ -1,20 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Admin\Resources\Transactions;
 
-use App\Filament\Admin\Resources\Transactions\Pages\CreateTransaction;
-use App\Filament\Admin\Resources\Transactions\Pages\EditTransaction;
 use App\Filament\Admin\Resources\Transactions\Pages\ListTransactions;
-use App\Filament\Admin\Resources\Transactions\Schemas\TransactionForm;
 use App\Filament\Admin\Resources\Transactions\Tables\TransactionsTable;
 use App\Models\Transaction;
 use BackedEnum;
 use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
-class TransactionResource extends Resource
+final class TransactionResource extends Resource
 {
     protected static ?string $model = Transaction::class;
 

@@ -5,21 +5,27 @@ declare(strict_types=1);
 namespace App\Domains\Ledger\Services;
 
 use App\Enums\AccountType;
-use App\Models\LedgerAccount;
+use App\Enums\EntryDirection;
+use App\Models\Account;
+use App\Models\LedgerBatch;
 use App\Models\LedgerEntry;
+use App\Models\Provider;
 use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 final class LedgerService
 {
+    /**
+     * Get or create a ledger account for a holder of a specific type.
+     */
     public function getAccount(
         ?Model $holder,
         AccountType $type,
         string $currency = 'NGN',
         array $metadata = []
-    ): LedgerAccount {
-        return LedgerAccount::firstOrCreate(
+    ): Account {
+        return Account::firstOrCreate(
             [
                 'holder_id' => $holder?->getKey(),
                 'holder_type' => $holder?->getMorphClass(),
@@ -32,67 +38,127 @@ final class LedgerService
         );
     }
 
-    // Domain-specific account accessors (hide AccountType from business code)
-
-    public function customerWallet(Model $customer, string $currency = 'NGN'): LedgerAccount
+    public function customerWallet(Model $customer, string $currency): Account
     {
         return $this->getAccount($customer, AccountType::CUSTOMER_WALLET, $currency);
     }
 
-    public function businessWallet(Model $business, string $currency = 'NGN'): LedgerAccount
+    public function businessReceivable(Model $business, string $currency): Account
     {
         return $this->getAccount($business, AccountType::BUSINESS_WALLET, $currency);
     }
 
-    public function providerClearing(Model $provider, string $currency = 'NGN'): LedgerAccount
+    public function providerReceivable(Model $provider, string $currency): Account
     {
         return $this->getAccount($provider, AccountType::PROVIDER_CLEARING, $currency);
     }
 
-    public function platformRevenue(string $currency = 'NGN'): LedgerAccount
+    public function platformReceivable(string $currency): Account
+    {
+        return $this->getAccount(null, AccountType::PLATFORM_CLEARING, $currency);
+    }
+
+    public function platformRevenue(string $currency): Account
     {
         return $this->getAccount(null, AccountType::PLATFORM_FEE_REVENUE, $currency);
     }
 
-    public function providerFeeExpense(string $currency = 'NGN'): LedgerAccount
+    public function providerFee(Provider $provider, string $currency): Account
     {
-        return $this->getAccount(null, AccountType::PROVIDER_FEE_EXPENSE, $currency);
+        return $this->getAccount($provider, AccountType::PROVIDER_FEE_EXPENSE, $currency);
     }
 
     /**
-     * Atomically transfer funds between two accounts.
-     * Creates both debit and credit entries as one business action.
-     *
-     * @param  Transaction  $transaction  The transaction context
-     * @param  LedgerAccount  $from  Account to debit (source)
-     * @param  LedgerAccount  $to  Account to credit (destination)
-     * @param  int  $amount  Amount to transfer (positive value)
-     * @return array{debit: LedgerEntry, credit: LedgerEntry}
+     * Start a fluent ledger transaction.
      */
-    public function transfer(Transaction $transaction, LedgerAccount $from, LedgerAccount $to, int $amount): array
+    public function transaction(Transaction $transaction): LedgerTransactionManager
     {
-        $amount = abs($amount); // Ensure positive
+        return new LedgerTransactionManager($this, $transaction);
+    }
 
-        return DB::transaction(function () use ($from, $to, $amount, $transaction) {
-            return [
-                'debit' => $this->recordEntry($transaction, $from, -$amount, 'debit'),
-                'credit' => $this->recordEntry($transaction, $to, $amount, 'credit'),
-            ];
+    /**
+     * Start a new ledger batch for a transaction.
+     * Idempotency is guaranteed by unique transaction_id index.
+     */
+    public function startBatch(Transaction $tx): LedgerBatch
+    {
+        return LedgerBatch::firstOrCreate([
+            'transaction_id' => $tx->id,
+        ]);
+    }
+
+    /**
+     * Post a double-entry movement between two accounts.
+     * Must be called within a DB transaction.
+     */
+    public function post(
+        LedgerBatch $batch,
+        Transaction $tx,
+        Account $debit,
+        Account $credit,
+        int $amount
+    ): void {
+        if ($amount <= 0) {
+            return;
+        }
+
+        DB::transaction(function () use ($batch, $tx, $debit, $credit, $amount) {
+            // 1. Create Debit Entry
+            $debitEntry = LedgerEntry::create([
+                'ledger_batch_id' => $batch->id,
+                'ledger_account_id' => $debit->id,
+                'transaction_id' => $tx->id,
+                'reference' => $tx->reference,
+                'amount' => $amount,
+                'direction' => EntryDirection::DEBIT,
+            ]);
+
+            // 2. Create Credit Entry
+            $creditEntry = LedgerEntry::create([
+                'ledger_batch_id' => $batch->id,
+                'ledger_account_id' => $credit->id,
+                'transaction_id' => $tx->id,
+                'reference' => $tx->reference,
+                'amount' => $amount,
+                'direction' => EntryDirection::CREDIT,
+            ]);
+
+            // 3. Increment Snapshots (Atomic SQL)
+            $this->incrementSnapshot($debit, $amount, $debitEntry->id);
+            $this->incrementSnapshot($credit, -$amount, $creditEntry->id);
         });
     }
 
-    private function recordEntry(
-        Transaction $transaction,
-        LedgerAccount $account,
-        int $amount,
-        string $direction
-    ): LedgerEntry {
-        return LedgerEntry::create([
-            'ledger_account_id' => $account->id,
-            'transaction_id' => $transaction->id,
-            'reference' => $transaction->reference,
-            'amount' => $amount,
-            'direction' => $direction,
-        ]);
+    /**
+     * Get the current balance of an account from the snapshot table.
+     */
+    public function getBalance(Account $account): int
+    {
+        return (int) DB::table('account_balances')
+            ->where('ledger_account_id', $account->id)
+            ->value('balance') ?? 0;
+    }
+
+    /**
+     * Perform an atomic balance update using SQL UPSERT.
+     * This is highly concurrent and prevent lost updates.
+     */
+    public function incrementSnapshot(Account $account, int $amount, int $entryId): void
+    {
+        DB::table('account_balances')->upsert(
+            [
+                'ledger_account_id' => $account->id,
+                'balance' => $amount,
+                'last_entry_id' => $entryId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            ['ledger_account_id'],
+            [
+                'balance' => DB::raw("balance + {$amount}"),
+                'last_entry_id' => $entryId,
+                'updated_at' => now(),
+            ]
+        );
     }
 }

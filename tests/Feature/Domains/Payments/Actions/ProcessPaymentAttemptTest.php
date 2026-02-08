@@ -6,33 +6,35 @@ namespace Tests\Feature\Domains\Payments\Actions;
 
 use App\Domains\Payments\Actions\AuthorizePayment;
 use App\Domains\Payments\Actions\ProcessPaymentAttempt;
-use App\Domains\Payments\Providers\DataTransferObjects\ProviderResponse;
-use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Enums\TransactionStatus;
+use App\Events\TransactionSuccessful;
 use App\Models\Business;
 use App\Models\PaymentIntent;
 use App\Models\Provider;
 use App\Models\Transaction;
 use App\Models\User;
-use Exception;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Mockery;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    PaymentProvider::fake();
-    $this->provider = Provider::factory()->test()->create();
     $this->user = User::factory()->create();
     $this->business = Business::create([
         'name' => 'Web Business',
         'email' => 'web@business.com',
         'owner_id' => $this->user->id,
     ]);
+
+    // Sync actual providers
+    Artisan::call('payment:providers-sync');
+    $this->provider = Provider::where('identifier', 'paystack')->first();
 
     $this->payment = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
@@ -50,26 +52,27 @@ beforeEach(function () {
 });
 
 it('processes a successful payment attempt', function () {
-    // 1. Mock PaymentProvider
-    PaymentProvider::shouldReceive('verifyTransaction')
-        ->with(
-            Mockery::on(fn($p) => $p->id === $this->provider->id),
-            'REF_PROV_123'
-        )
-        ->once()
-        ->andReturn(new ProviderResponse(
-            status: AuthorizationStatus::Success,
-            providerReference: 'REF_PROV_123',
-            rawResponse: []
-        ));
+    Event::fake();
 
-    // 3. Execute Action
+    // 1. Mock HTTP response from Paystack
+    Http::fake([
+        'api.paystack.co/transaction/verify/*' => Http::response([
+            'status' => true,
+            'data' => [
+                'status' => 'success',
+                'reference' => 'REF_PROV_123',
+                'amount' => 1000,
+            ],
+        ]),
+    ]);
+
+    // 2. Execute Action
     $action = app(ProcessPaymentAttempt::class);
     $result = $action->execute($this->attempt);
 
     expect($result)->toBeTrue();
 
-    // 4. Verify State Changes
+    // 3. Verify State Changes
     $this->attempt->refresh();
     $this->payment->refresh();
 
@@ -80,34 +83,28 @@ it('processes a successful payment attempt', function () {
     expect($transaction)->not->toBeNull();
     expect($transaction->status)->toBe(TransactionStatus::Success);
     expect($transaction->amount)->toBe(1000);
-});
 
-it('calculates split fees correctly', function () {
-    $this->payment->update(['bearer' => FeeBearer::Split]);
-    $this->attempt->update(['fee' => 20]); // Total fee 20
-
-    // Mock Provider calls
-    PaymentProvider::shouldReceive('verifyTransaction')->andReturn(new ProviderResponse(
-        status: AuthorizationStatus::Success,
-        providerReference: 'REF_PROV_123',
-        rawResponse: []
-    ));
-    $action = app(ProcessPaymentAttempt::class);
-    $result = $action->execute($this->attempt);
-
-    expect($result)->toBeTrue();
+    // 4. Assert Event Dispatched
+    Event::assertDispatched(TransactionSuccessful::class, function ($event) use ($transaction) {
+        return $event->transaction->id === $transaction->id
+            && $event->provider->id === $this->provider->id
+            && $event->totalFee === 0; // Assuming 0 fee for this test case
+    });
 });
 
 it('returns false when provider verification fails', function () {
-    PaymentProvider::shouldReceive('verifyTransaction')
-        ->once()
-        ->andReturn(new ProviderResponse(
-            status: AuthorizationStatus::Pending, // Not Success
-            providerReference: 'REF_PROV_123',
-            rawResponse: []
-        ));
+    Event::fake();
 
-    // recordLedger should NOT be called
+    // 1. Mock HTTP response as pending
+    Http::fake([
+        'api.paystack.co/transaction/verify/*' => Http::response([
+            'status' => true,
+            'data' => [
+                'status' => 'pending',
+                'reference' => 'REF_PROV_123',
+            ],
+        ]),
+    ]);
 
     $action = app(ProcessPaymentAttempt::class);
     $result = $action->execute($this->attempt);
@@ -116,30 +113,39 @@ it('returns false when provider verification fails', function () {
 
     $this->attempt->refresh();
     expect($this->attempt->status)->toBe(AuthorizationStatus::Pending);
+
+    Event::assertNotDispatched(TransactionSuccessful::class);
 });
 
-it('returns false and logs error when verification throws exception', function () {
-    PaymentProvider::shouldReceive('verifyTransaction')
-        ->once()
-        ->andThrow(new Exception('Network Error'));
+it('transitions to failed when provider HTTP response fails', function () {
+    Event::fake();
 
-    PaymentProvider::shouldReceive('getFee')->never();
+    // 1. Mock HTTP to fail
+    Http::fake([
+        'api.paystack.co/transaction/verify/*' => Http::response(null, 500),
+    ]);
 
     $action = app(ProcessPaymentAttempt::class);
     $result = $action->execute($this->attempt);
 
-    expect($result)->toBeFalse();
+    // HTTP failure returns Failed status, which is a final status that gets processed
+    expect($result)->toBeTrue();
 
-    // Status should remain unchanged
+    // Status should be Failed
     $this->attempt->refresh();
-    expect($this->attempt->status)->toBe(AuthorizationStatus::Pending);
+    expect($this->attempt->status)->toBe(AuthorizationStatus::Failed);
+
+    Event::assertNotDispatched(TransactionSuccessful::class);
 });
 
 it('ensures transaction exists (idempotency)', function () {
+    Event::fake();
+
     // If transaction already exists, it shouldn't create a new one, but use it.
     $existingTx = Transaction::create([
         'business_id' => $this->business->id,
         'amount' => 1000,
+        'gross_amount' => 1000,
         'currency' => 'NGN',
         'status' => 'pending',
         'reference' => $this->payment->reference,
@@ -147,11 +153,17 @@ it('ensures transaction exists (idempotency)', function () {
         'mode' => 'live',
     ]);
 
-    PaymentProvider::shouldReceive('verifyTransaction')->andReturn(new ProviderResponse(
-        status: AuthorizationStatus::Success,
-        providerReference: 'REF_PROV_123',
-        rawResponse: []
-    ));
+    Http::fake([
+        'api.paystack.co/transaction/verify/*' => Http::response([
+            'status' => true,
+            'data' => [
+                'status' => 'success',
+                'reference' => 'REF_PROV_123',
+                'amount' => 1000,
+            ],
+        ]),
+    ]);
+
     $action = app(ProcessPaymentAttempt::class);
     $result = $action->execute($this->attempt);
 
@@ -160,71 +172,34 @@ it('ensures transaction exists (idempotency)', function () {
     $existingTx->refresh();
     expect($existingTx->status)->toBe(TransactionStatus::Success);
     expect(Transaction::count())->toBe(1);
+
+    Event::assertDispatched(TransactionSuccessful::class);
 });
 
-it('ensures no double-posting to ledger (idempotent)', function () {
-    // 1. Arrange: Prepare successful verification
-    PaymentProvider::shouldReceive('verifyTransaction')->andReturn(new ProviderResponse(
-        status: AuthorizationStatus::Success,
-        providerReference: 'REF_PROV_IDEM',
-        rawResponse: []
-    ));
+it('ensures no double-dispatch of event (idempotent)', function () {
+    Event::fake();
+
+    // 1. Mock HTTP
+    Http::fake([
+        'api.paystack.co/transaction/verify/*' => Http::response([
+            'status' => true,
+            'data' => [
+                'status' => 'success',
+                'reference' => 'REF_PROV_IDEM',
+                'amount' => 1000,
+            ],
+        ]),
+    ]);
 
     // 2. Execute First Time
     $action = app(ProcessPaymentAttempt::class);
     $action->execute($this->attempt);
 
-    $transaction = Transaction::where('reference', $this->payment->reference)->first();
-    $entryCount = $transaction->ledgerEntries()->count();
-    expect($entryCount)->toBeGreaterThan(0);
+    Event::assertDispatched(TransactionSuccessful::class, 1);
 
     // 3. Execute Second Time (Simulate retry)
     $action->execute($this->attempt);
 
-    // 4. Assert: Ledger entries haven't changed
-    expect($transaction->ledgerEntries()->count())->toBe($entryCount);
-});
-
-it('calculates split fees using integer math without penny loss', function () {
-    // Odd fee: 21. Split should be 10 and 11.
-    $this->payment->update(['bearer' => FeeBearer::Split]);
-    $this->attempt->update(['fee' => 21]);
-
-    PaymentProvider::shouldReceive('verifyTransaction')->andReturn(new ProviderResponse(
-        status: AuthorizationStatus::Success,
-        providerReference: 'REF_PROV_FEE',
-        rawResponse: []
-    ));
-
-    $action = app(ProcessPaymentAttempt::class);
-    $action->execute($this->attempt);
-
-    $transaction = Transaction::where('reference', $this->payment->reference)->first();
-
-    // Verify Business Wallet receives Gross Amount (1000) and pays Merchant Fee (10)
-    $businessWallet = app(\App\Domains\Ledger\Services\LedgerService::class)
-        ->businessWallet($this->business, 'NGN');
-
-    $grossCredit = \App\Models\LedgerEntry::where('ledger_account_id', $businessWallet->id)
-        ->where('transaction_id', $transaction->id)
-        ->where('amount', 1000)
-        ->exists();
-
-    $feeDebit = \App\Models\LedgerEntry::where('ledger_account_id', $businessWallet->id)
-        ->where('transaction_id', $transaction->id)
-        ->where('amount', -10)
-        ->exists();
-
-    expect($grossCredit)->toBeTrue()
-        ->and($feeDebit)->toBeTrue();
-
-    // Verify Platform Revenue receives 10 (Merchant) + 11 (Customer) = 21
-    $revenueAccount = app(\App\Domains\Ledger\Services\LedgerService::class)
-        ->platformRevenue('NGN');
-
-    $totalRevenue = \App\Models\LedgerEntry::where('ledger_account_id', $revenueAccount->id)
-        ->where('transaction_id', $transaction->id)
-        ->sum('amount');
-
-    expect($totalRevenue)->toBe(21);
+    // 4. Assert: Event dispatched only once
+    Event::assertDispatched(TransactionSuccessful::class, 1);
 });

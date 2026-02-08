@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Domains\Payments\Actions\AuthorizePayment;
 use App\Domains\Payments\Actions\RequestPayment;
-use App\Enums\AuthorizationStatus;
 use App\Enums\PaymentChannel;
 use App\Http\Requests\AuthorizePaymentRequest;
 use App\Http\Requests\StorePaymentRequest;
@@ -45,7 +44,7 @@ final class PaymentController
             $attempt->load(['paymentIntent.customer']);
             $payment = $attempt->paymentIntent;
 
-            if (in_array($attempt->status, [AuthorizationStatus::PendingPin, AuthorizationStatus::PendingOtp])) {
+            if ($attempt->status->validating()) {
                 return response()->json([
                     'reference' => $payment->reference,
                     'amount' => $payment->amount,

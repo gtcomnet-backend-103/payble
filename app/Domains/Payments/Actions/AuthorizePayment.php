@@ -16,7 +16,6 @@ use App\Models\PaymentIntent;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use function Livewire\store;
 
 final class AuthorizePayment
 {
@@ -122,7 +121,6 @@ final class AuthorizePayment
         $amount = match ($payment->bearer) {
             FeeBearer::Customer => bcadd((string) $payment->amount, (string) $feeAmount),
             FeeBearer::Merchant => $payment->amount,
-            FeeBearer::Split => bcadd((string) $payment->amount, bcmul((string) $feeAmount, '0.5')),
         };
 
         $providerFee = PaymentProvider::getFee(

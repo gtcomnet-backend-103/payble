@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Facade;
  */
 final class PaymentProvider extends Facade
 {
-    protected static function getFacadeAccessor(): string
+    public static function getFacadeAccessor(): string
     {
         return 'payment-provider';
     }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Ledger\Actions;
 
-use App\Models\LedgerAccount;
+use App\Models\Account;
 use App\Models\LedgerEntry;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
@@ -13,8 +13,8 @@ final class CreateDoubleEntry
 {
     public function execute(
         Transaction $transaction,
-        LedgerAccount $debitAccount,
-        LedgerAccount $creditAccount,
+        Account $debitAccount,
+        Account $creditAccount,
         int $amount,
         ?string $reference = null
     ): void {
@@ -25,7 +25,7 @@ final class CreateDoubleEntry
             // But we will use the 'direction' field explicitly.
 
             LedgerEntry::create([
-                'ledger_account_id' => $debitAccount->id,
+                'account_id' => $debitAccount->id,
                 'transaction_id' => $transaction->id,
                 'reference' => $reference,
                 'amount' => $amount,
@@ -33,7 +33,7 @@ final class CreateDoubleEntry
             ]);
 
             LedgerEntry::create([
-                'ledger_account_id' => $creditAccount->id,
+                'account_id' => $creditAccount->id,
                 'transaction_id' => $transaction->id,
                 'reference' => $reference,
                 'amount' => -$amount, // Negative for balancing the credit

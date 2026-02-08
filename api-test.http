@@ -1,7 +1,7 @@
 ### API Configuration
-@baseUrl = http://payable.test
-@apiKey = your_test_key
-@reference = REF_1001001008788i0ej
+@baseUrl = http://rabbitapp.test
+@apiKey =
+@reference = REF_1001sfsdafddlsdednd
 
 ### 1. Initialize Payment
 # Create a new payment intent for a customer
@@ -15,6 +15,7 @@ Accept: application/json
     "email": "customer@example.com",
     "currency": "NGN",
     "reference": "{{reference}}",
+    "bearer": "split",
     "metadata": {
         "order_id": "12345"
     }
@@ -30,8 +31,8 @@ Accept: application/json
 {
     "channel": "card",
     "card": {
-        "number": "4084084084084081",
-        "cvv": "408",
+        "number": "507850785078507804",
+        "cvv": "884",
         "expiry_month": "02",
         "expiry_year": "27"
     }
@@ -56,7 +57,9 @@ Content-Type: application/json
 Accept: application/json
 
 {
-    "otp": "123456"
+    "pin": "0000",
+    "otp": "123456",
+    "phone": "09021234567"
 }
 
 ### 5. Get Transaction Details

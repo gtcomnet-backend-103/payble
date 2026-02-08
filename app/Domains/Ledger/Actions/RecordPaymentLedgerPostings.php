@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domains\Ledger\Actions;
 
+use App\Domains\Ledger\DataTransferObjects\LedgerEntry as LedgerEntryDTO;
+use App\Domains\Ledger\Facades\Ledger;
 use App\Domains\Ledger\Services\LedgerService;
 use App\Models\Provider;
 use App\Models\Transaction;
-use Illuminate\Support\Facades\DB;
 
 final class RecordPaymentLedgerPostings
 {
@@ -22,45 +23,46 @@ final class RecordPaymentLedgerPostings
         int $businessFee,
         int $providerFee
     ): void {
-        // Idempotency: skip if ledger postings already exist for this transaction
-        if ($transaction->ledgerEntries()->exists()) {
-            return;
+        $currency = $transaction->currency->value;
+        $gross = $transaction->gross_amount; // Total paid by customer (e.g., 10500)
+
+        // Retrieve accounts
+        $providerReceivable = $this->ledgerService->providerReceivable($provider, $currency);
+        $platformRevenue = $this->ledgerService->platformRevenue($currency);
+        $providerFeeExpense = $this->ledgerService->providerFee($provider, $currency);
+        $businessWallet = $this->ledgerService->businessReceivable($transaction->business, $currency);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Calculations
+        |--------------------------------------------------------------------------
+        | Net Provider: What is actually sitting in Gateway (Gross - Provider Fee)
+        | Platform Share: Total income for you (Business Commission + Customer Surcharge)
+        | Merchant Share: What the business gets to keep
+        */
+        $netInProviderAccount = $gross - $providerFee;
+        $totalPlatformRevenue = $businessFee + $customerFee;
+        $merchantNet = $gross - $totalPlatformRevenue;
+
+        $entries = [];
+
+        // 1. Where is the money? (Assets / Expenses - Debits)
+        // Record the actual net amount held by the provider
+        $entries[] = LedgerEntryDTO::debit($providerReceivable, $netInProviderAccount);
+
+        // Record the cost of processing as an expense
+        if ($providerFee > 0) {
+            $entries[] = LedgerEntryDTO::debit($providerFeeExpense, $providerFee);
         }
 
-        DB::transaction(function () use ($transaction, $provider, $customerFee, $businessFee, $providerFee) {
-            $business = $transaction->business;
-            $currency = $transaction->currency->value;
+        // 2. Who owns the money? (Revenue / Liabilities - Credits)
+        // Record your platform's earnings
+        $entries[] = LedgerEntryDTO::credit($platformRevenue, $totalPlatformRevenue);
 
-            // Resolve Accounts using domain methods
-            $providerClearing = $this->ledgerService->providerClearing($provider, $currency);
-            $customerSource = $this->ledgerService->customerWallet($transaction->paymentIntent->customer, $currency);
-            $platformRevenue = $this->ledgerService->platformRevenue($currency);
-            $providerFeeExpense = $this->ledgerService->providerFeeExpense($currency);
-            $businessWallet = $this->ledgerService->businessWallet($business, $currency);
+        // Record the debt owed to the merchant
+        $entries[] = LedgerEntryDTO::credit($businessWallet, $merchantNet);
 
-            // Get amount from attempt, cus it holds providers amount
-            $amount = $transaction->paymentIntent->attempts()->latest()->first()->amount;
-
-            // 1. Record gross inflow from provider
-            // Transfer: Provider Clearing → Customer Payment Source
-            $this->ledgerService->transfer($transaction, $providerClearing, $customerSource, $amount);
-
-            // 2. Apply customer fee
-            // Transfer: Customer Payment Source → Platform Revenue
-            $this->ledgerService->transfer($transaction, $customerSource, $platformRevenue, $customerFee);
-
-            // 3. Transfer net amount to business
-            // Transfer: Customer Payment Source → Business Wallet
-            $netToBusiness = $transaction->paymentIntent->amount;
-            $this->ledgerService->transfer($transaction, $customerSource, $businessWallet, $netToBusiness);
-
-            // 4. Apply business fee
-            // Transfer: Business Wallet → Platform Revenue
-            $this->ledgerService->transfer($transaction, $businessWallet, $platformRevenue, $businessFee);
-
-            // 5. Record provider fee (expense)
-            // Transfer: Provider Clearing → Provider Fee Expense
-            $this->ledgerService->transfer($transaction, $providerClearing, $providerFeeExpense, $providerFee);
-        });
+        // Final check: (netInProvider + providerFee) - (platformRevenue + businessWallet) === 0
+        Ledger::transaction($transaction)->entries($entries);
     }
 }

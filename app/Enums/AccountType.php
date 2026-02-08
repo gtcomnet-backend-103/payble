@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Enums;
 
 enum AccountType: string
@@ -11,5 +13,5 @@ enum AccountType: string
     case PLATFORM_FEE_REVENUE = 'platform_fee_revenue';
     case PROVIDER_FEE_EXPENSE = 'provider_fee_expense';
     case PROVIDER_CLEARING = 'provider_clearing';
+    case PLATFORM_CLEARING = 'platform_clearing';
 }
-

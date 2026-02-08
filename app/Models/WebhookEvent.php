@@ -41,7 +41,7 @@ final class WebhookEvent extends Model
 
     protected $guarded = [];
 
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'raw_payload' => 'array',

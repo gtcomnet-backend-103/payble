@@ -13,9 +13,9 @@ enum PaymentStatus: string
     case Failed = 'failed';
     case Reversed = 'reversed';
 
-    public function is(PaymentStatus | string $status): bool
+    public function is(self|string $status): bool
     {
-        $status = $status instanceof PaymentStatus ? $status : PaymentStatus::from($status);
+        $status = $status instanceof self ? $status : self::from($status);
 
         return $status === $this;
     }

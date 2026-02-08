@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int|null $business_id
  * @property PaymentChannel $channel
+ * @property string $currency
  * @property int $min_fee
  * @property int|null $max_fee
  * @property numeric $percentage
@@ -29,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig whereBusinessId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig whereChannel($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig whereCurrency($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig whereFixedAmount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig whereIsActive($value)

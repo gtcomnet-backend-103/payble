@@ -113,10 +113,17 @@ final class PaystackAdapter implements ProviderAdapter
         }
 
         $data = $response->json('data');
+        $status = $data['status'] ?? 'pending';
+
+        $mappedStatus = match ($status) {
+            'success' => AuthorizationStatus::Success,
+            'failed' => AuthorizationStatus::Failed,
+            default => AuthorizationStatus::Pending,
+        };
 
         return new ProviderResponse(
-            status: $data['status'] === 'success' ? AuthorizationStatus::Success : AuthorizationStatus::Failed,
-            providerReference: $data['reference'],
+            status: $mappedStatus,
+            providerReference: $data['reference'] ?? $reference,
             rawResponse: $data
         );
     }
@@ -169,7 +176,10 @@ final class PaystackAdapter implements ProviderAdapter
 
         $mappedStatus = match ($status) {
             'success' => AuthorizationStatus::Success,
-            'send_phone' => AuthorizationStatus::Pending,
+            'failed' => AuthorizationStatus::Failed,
+            'send_pin' => AuthorizationStatus::PendingPin,
+            'send_otp' => AuthorizationStatus::PendingOtp,
+            'send_phone' => AuthorizationStatus::PendingPhone,
             default => AuthorizationStatus::Pending,
         };
 

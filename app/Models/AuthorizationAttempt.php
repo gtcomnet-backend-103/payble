@@ -19,6 +19,7 @@ use RuntimeException;
  * @property PaymentChannel $channel
  * @property string $provider_reference
  * @property AuthorizationStatus $status
+ * @property \Carbon\CarbonImmutable|null $completed_at
  * @property int $fee
  * @property int $provider_fee
  * @property int $amount
@@ -29,19 +30,20 @@ use RuntimeException;
  * @property array<array-key, mixed>|null $metadata
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- * @property \Carbon\CarbonImmutable|null $completed_at
  * @property-read string|null $action
  * @property-read array $authorization
- * @property-read array $bank_details
+ * @property-read bool $completed
  * @property-read PaymentIntent $paymentIntent
  * @property-read Provider $provider
  *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt DQWpending()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt pending()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt validating()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereAmount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereChannel($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereCompletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereCurrency($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereFee($value)
@@ -56,7 +58,6 @@ use RuntimeException;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereRawResponse($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereUpdatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereCompletedAt($value)
  *
  * @mixin \Eloquent
  */
@@ -139,6 +140,11 @@ final class AuthorizationAttempt extends Model
 
     public function transitionTo(AuthorizationStatus $target): bool
     {
+        // Allow no-op if already in target status
+        if ($this->status === $target) {
+            return true;
+        }
+
         if (! $this->status->canTransitionTo($target)) {
             throw new RuntimeException("Invalid status transition from {$this->status->value} to {$target->value}");
         }
@@ -151,10 +157,11 @@ final class AuthorizationAttempt extends Model
     /**
      * @return Attribute<string|null, never>
      */
-    protected function action(): Attribute
+    public function action(): Attribute
     {
         return Attribute::get(function (): ?string {
             return match ($this->status) {
+                AuthorizationStatus::PendingPhone => 'phone',
                 AuthorizationStatus::PendingPin => 'pin',
                 AuthorizationStatus::PendingOtp => 'otp',
                 AuthorizationStatus::PendingTransfer => 'transfer',
@@ -166,7 +173,7 @@ final class AuthorizationAttempt extends Model
     /**
      * @return Attribute<bool, never>
      */
-    protected function completed(): Attribute
+    public function completed(): Attribute
     {
         return Attribute::get(fn (): bool => $this->completed_at !== null);
     }
@@ -174,7 +181,7 @@ final class AuthorizationAttempt extends Model
     /**
      * @return Attribute<array<string, mixed>, never>
      */
-    protected function authorization(): Attribute
+    public function authorization(): Attribute
     {
         return Attribute::get(
             fn (): array => $this->channel === PaymentChannel::BankTransfer

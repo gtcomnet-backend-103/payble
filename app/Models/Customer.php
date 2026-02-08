@@ -20,8 +20,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
  * @property-read Business $business
- * @property-read \Illuminate\Database\Eloquent\Collection<int, LedgerAccount> $ledgerAccounts
- * @property-read int|null $ledger_accounts_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Account> $ledgerAccounts
+ * @property-read int|null $accounts_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, PaymentIntent> $paymentIntents
  * @property-read int|null $payment_intents_count
  *
@@ -43,7 +43,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class Customer extends Model
 {
-    use HasFactory;
+    use HasFactory, \Illuminate\Notifications\Notifiable;
 
     protected $fillable = [
         'business_id',
@@ -73,6 +73,6 @@ final class Customer extends Model
 
     public function ledgerAccounts(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
-        return $this->morphMany(LedgerAccount::class, 'holder');
+        return $this->morphMany(Account::class, 'holder');
     }
 }

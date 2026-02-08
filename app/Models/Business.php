@@ -18,9 +18,15 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string $email
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- * @property-read \Illuminate\Database\Eloquent\Collection<int, LedgerAccount> $ledgerAccounts
- * @property-read int|null $ledger_accounts_count
+ * @property string|null $webhook_url
+ * @property \Carbon\CarbonImmutable|null $verified_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ApiToken> $apiTokens
+ * @property-read int|null $api_tokens_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Account> $ledgerAccounts
+ * @property-read int|null $accounts_count
  * @property-read User $owner
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Laravel\Sanctum\PersonalAccessToken> $tokens
+ * @property-read int|null $tokens_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, User> $users
  * @property-read int|null $users_count
  *
@@ -34,13 +40,15 @@ use Laravel\Sanctum\HasApiTokens;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Business whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Business whereOwnerId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Business whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Business whereVerifiedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Business whereWebhookUrl($value)
  *
  * @mixin \Eloquent
  */
 final class Business extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\BusinessFactory> */
-    use HasApiTokens, HasFactory;
+    use HasApiTokens, HasFactory, \Illuminate\Notifications\Notifiable;
 
     protected $fillable = [
         'name',
@@ -62,7 +70,7 @@ final class Business extends Authenticatable
 
     public function ledgerAccounts(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
-        return $this->morphMany(LedgerAccount::class, 'holder');
+        return $this->morphMany(Account::class, 'holder');
     }
 
     /**
@@ -78,7 +86,7 @@ final class Business extends Authenticatable
         return $this->verified_at !== null;
     }
 
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             'verified_at' => 'immutable_datetime',

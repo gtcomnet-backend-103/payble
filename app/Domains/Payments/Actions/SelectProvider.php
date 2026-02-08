@@ -6,15 +6,14 @@ namespace App\Domains\Payments\Actions;
 
 use App\Enums\PaymentChannel;
 use App\Models\Provider;
+use Exception;
 
 final class SelectProvider
 {
     /**
      * Select the best provider for the given channel.
      *
-     * @param PaymentChannel $channel
-     * @return Provider
-     * @throws \Exception
+     * @throws Exception
      */
     public function execute(PaymentChannel $channel): Provider
     {
@@ -25,7 +24,7 @@ final class SelectProvider
             ->get();
 
         if ($providers->isEmpty()) {
-            throw new \Exception("No healthy providers available for channel: {$channel->value}");
+            throw new Exception("No healthy providers available for channel: {$channel->value}");
         }
 
         // For now, we pick the one with the lowest "fee" in metadata,

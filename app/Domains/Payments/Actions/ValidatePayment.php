@@ -7,7 +7,6 @@ namespace App\Domains\Payments\Actions;
 use App\Domains\Payments\Providers\DataTransferObjects\PaymentValidateDTO;
 use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
-use App\Enums\PaymentStatus;
 use App\Models\AuthorizationAttempt;
 use App\Models\PaymentIntent;
 use Exception;
@@ -37,8 +36,8 @@ final class ValidatePayment
             }
 
             // 2. Preconditions
-            if ($payment->status->is(PaymentStatus::Success)) {
-                throw new Exception('Payment has already been successful.', 400);
+            if ($payment->status->isFinal()) {
+                throw new Exception('Payment has already been authorized.', 400);
             }
 
             // 3. Find latest pending attempt
@@ -60,7 +59,7 @@ final class ValidatePayment
                 'payment_intent_id' => $payment->id,
                 'provider_id' => $latestAttempt->provider_id,
                 'channel' => $latestAttempt->channel,
-                'status' => AuthorizationStatus::Pending, // Start as pending
+                'status' => $latestAttempt->status,
                 'fee' => $latestAttempt->fee,
                 'provider_fee' => $latestAttempt->provider_fee,
                 'amount' => $latestAttempt->amount,
@@ -73,13 +72,12 @@ final class ValidatePayment
             $providerResponse = PaymentProvider::validate(
                 $newAttempt->provider,
                 $newAttempt->provider_reference,
-                new PaymentValidateDTO(
-                    pin: $data['pin'] ?? null,
-                    otp: $data['otp'] ?? null,
-                    phone: $data['phone'] ?? null,
-                    birthday: $data['birthday'] ?? null,
-                    address: $data['address'] ?? null,
-                )
+                match ($newAttempt->status) {
+                    AuthorizationStatus::PendingPin => new PaymentValidateDTO(pin: $data['pin'] ?? null),
+                    AuthorizationStatus::PendingOtp => new PaymentValidateDTO(otp: $data['otp'] ?? null),
+                    AuthorizationStatus::PendingPhone => new PaymentValidateDTO(phone: $data['phone'] ?? null),
+                    default => new PaymentValidateDTO(),
+                }
             );
 
             // 6. Update the NEW attempt with result

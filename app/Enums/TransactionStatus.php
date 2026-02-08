@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Enums;
 
 enum TransactionStatus: string
@@ -21,9 +23,9 @@ enum TransactionStatus: string
         return in_array($target, $this->transitions(), true);
     }
 
-    public function is(TransactionStatus | string $status): bool
+    public function is(self|string $status): bool
     {
-        $status = $status instanceof TransactionStatus ? $status : TransactionStatus::from($status);
+        $status = $status instanceof self ? $status : self::from($status);
 
         return $status === $this;
     }

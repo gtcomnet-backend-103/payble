@@ -81,12 +81,12 @@ return [
 
         'admins' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', \App\Models\Admin::class),
+            'model' => env('AUTH_MODEL', App\Models\Admin::class),
         ],
 
         'businesses' => [
             'driver' => 'eloquent',
-            'model' => \App\Models\Business::class,
+            'model' => App\Models\Business::class,
         ],
 
         // 'users' => [

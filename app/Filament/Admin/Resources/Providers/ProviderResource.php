@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Admin\Resources\Providers;
 
-use App\Filament\Admin\Resources\Providers\Pages\CreateProvider;
-use App\Filament\Admin\Resources\Providers\Pages\EditProvider;
 use App\Filament\Admin\Resources\Providers\Pages\ListProviders;
 use App\Filament\Admin\Resources\Providers\Schemas\ProviderForm;
 use App\Filament\Admin\Resources\Providers\Tables\ProvidersTable;
@@ -44,7 +42,7 @@ final class ProviderResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListProviders::route('/')
+            'index' => ListProviders::route('/'),
         ];
     }
 }

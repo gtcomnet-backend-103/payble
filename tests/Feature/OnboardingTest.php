@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
+use App\Filament\Pages\Tenancy\RegisterBusiness;
 use App\Models\Business;
 use App\Models\User;
-use App\Filament\Pages\Tenancy\RegisterBusiness;
 use Livewire\Livewire;
+
 use function Pest\Laravel\assertDatabaseHas;
 
 it('requires business onboarding after registration', function () {

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Domains\Payments\Actions\ValidatePayment;
-use App\Enums\AuthorizationStatus;
 use App\Http\Requests\ValidatePaymentRequest;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -23,12 +22,11 @@ final class ValidatePaymentController
             $attempt->load(['paymentIntent.customer']);
             $payment = $attempt->paymentIntent;
 
-            if (in_array($attempt->status, [AuthorizationStatus::PendingPin, AuthorizationStatus::PendingOtp])) {
+            if ($attempt->status->validating()) {
                 return response()->json([
                     'reference' => $payment->reference,
                     'amount' => $payment->amount,
                     'action' => $attempt->action,
-                    'message' => $attempt->raw_response['message'] ?? 'Further validation required.',
                 ]);
             }
 

@@ -2,68 +2,68 @@
 
 declare(strict_types=1);
 
-use App\Domains\Payments\Providers\DataTransferObjects\ProviderResponse;
-use App\Domains\Payments\Providers\Facades\PaymentProvider;
+namespace Tests\Feature\Api;
+
 use App\Enums\AuthorizationStatus;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
+use App\Enums\TransactionStatus;
 use App\Models\AuthorizationAttempt;
 use App\Models\Business;
 use App\Models\PaymentIntent;
 use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->user = User::factory()->create();
-    $this->business = Business::create([
-        'name' => 'Test Business',
-        'email' => 'test@business.com',
+    $this->business = Business::factory()->create([
         'owner_id' => $this->user->id,
     ]);
     $this->user->businesses()->attach($this->business);
     Sanctum::actingAs($this->business, ['*'], 'business');
 
-    $this->provider = Provider::create([
-        'name' => 'Test Provider',
-        'identifier' => 'test_provider',
-        'is_active' => true,
-        'is_healthy' => true,
-        'supported_channels' => [PaymentChannel::Card->value],
-    ]);
+    // Ensure providers are synced and use Paystack for these tests
+    Artisan::call('payment:providers-sync');
+    $this->provider = Provider::where('identifier', 'paystack')->first();
 });
 
-it('validates a pending pin payment and requests otp', function () {
+it('validates a pending pin payment and transitions to pending otp', function () {
     // 1. Setup Payment and Initial Attempt
     $payment = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
         'status' => PaymentStatus::Initiated,
-        'reference' => 'REF_PIN',
-        'amount' => 5000,
     ]);
 
-    $attempt = AuthorizationAttempt::create([
+    AuthorizationAttempt::create([
         'payment_intent_id' => $payment->id,
         'provider_id' => $this->provider->id,
         'channel' => PaymentChannel::Card,
         'status' => AuthorizationStatus::PendingPin,
-        'provider_reference' => 'PROV_REF_1',
-        'amount' => 5000,
+        'provider_reference' => 'PROV_REF_PIN',
+        'amount' => $payment->amount,
         'currency' => $payment->currency,
         'fee' => 0,
         'provider_fee' => 0,
-        'idempotency_key' => 'SETUP_KEY_1',
+        'idempotency_key' => 'setup_key_pin',
     ]);
 
-    // 2. Mock Provider
-    PaymentProvider::fake()->shouldReturn(new ProviderResponse(
-        status: AuthorizationStatus::PendingOtp,
-        providerReference: 'PROV_REF_1',
-        rawResponse: ['message' => 'OTP required']
-    ));
+    // 2. Mock Paystack submit_pin response
+    Http::fake([
+        'api.paystack.co/charge/submit_pin' => Http::response([
+            'status' => true,
+            'data' => [
+                'status' => 'send_otp',
+                'reference' => 'PROV_REF_PIN',
+                'message' => 'Please enter OTP',
+            ],
+        ]),
+    ]);
 
     // 3. Make Request
     $response = $this->postJson("/api/payments/{$payment->reference}/validate", [
@@ -72,24 +72,79 @@ it('validates a pending pin payment and requests otp', function () {
 
     // 4. Assertions
     $response->assertStatus(200)
-        ->assertJsonPath('action', 'otp');
+        ->assertJsonPath('action', 'otp') // Inferred from PendingOtp status
+        ->assertJsonPath('reference', $payment->reference);
 
-    // Should create a NEW attempt
+    // Should create a NEW attempt for the validation step
     $this->assertDatabaseCount('authorization_attempts', 2);
     $this->assertDatabaseHas('authorization_attempts', [
         'payment_intent_id' => $payment->id,
         'status' => AuthorizationStatus::PendingOtp->value,
-        'provider_reference' => 'PROV_REF_1',
+        'provider_reference' => 'PROV_REF_PIN',
     ]);
 });
 
-it('validates otp and finalizes payment', function () {
+it('validates a pending phone payment and transitions to success', function () {
+    // 1. Setup Payment and Initial Attempt
+    $payment = PaymentIntent::factory()->create([
+        'business_id' => $this->business->id,
+        'status' => PaymentStatus::Initiated,
+    ]);
+
+    AuthorizationAttempt::create([
+        'payment_intent_id' => $payment->id,
+        'provider_id' => $this->provider->id,
+        'channel' => PaymentChannel::Card,
+        'status' => AuthorizationStatus::PendingPhone,
+        'provider_reference' => 'PROV_REF_PHONE',
+        'amount' => $payment->amount,
+        'currency' => $payment->currency,
+        'fee' => 0,
+        'provider_fee' => 0,
+        'idempotency_key' => 'setup_key_phone',
+    ]);
+
+    // 2. Mock Paystack submit_phone response
+    Http::fake([
+        'api.paystack.co/charge/submit_phone' => Http::response([
+            'status' => true,
+            'data' => [
+                'status' => 'success',
+                'reference' => 'PROV_REF_PHONE',
+                'amount' => $payment->amount,
+            ],
+        ]),
+        'api.paystack.co/transaction/verify/*' => Http::response([
+            'status' => true,
+            'data' => [
+                'status' => 'success',
+                'reference' => 'PROV_REF_PHONE',
+                'amount' => $payment->amount,
+                'customer' => ['email' => 'test@email.com'],
+            ],
+        ]),
+    ]);
+
+    // 3. Make Request
+    $response = $this->postJson("/api/payments/{$payment->reference}/validate", [
+        'phone' => '08012345678',
+    ]);
+
+    // 4. Assertions
+    $response->assertStatus(200)
+        ->assertJsonPath('status', 'success');
+
+    $this->assertDatabaseHas('payment_intents', [
+        'id' => $payment->id,
+        'status' => PaymentStatus::Success,
+    ]);
+});
+
+it('validates otp and successfuly finalizes payment', function () {
     // 1. Setup Payment and Previous Attempt
     $payment = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
         'status' => PaymentStatus::Initiated,
-        'reference' => 'REF_OTP',
-        'amount' => 5000,
     ]);
 
     AuthorizationAttempt::create([
@@ -97,20 +152,34 @@ it('validates otp and finalizes payment', function () {
         'provider_id' => $this->provider->id,
         'channel' => PaymentChannel::Card,
         'status' => AuthorizationStatus::PendingOtp,
-        'provider_reference' => 'PROV_REF_2',
-        'amount' => 5000,
+        'provider_reference' => 'PROV_REF_OTP',
+        'amount' => $payment->amount,
         'currency' => $payment->currency,
         'fee' => 100,
         'provider_fee' => 50,
-        'idempotency_key' => 'SETUP_KEY_2',
+        'idempotency_key' => 'setup_key_otp',
     ]);
 
-    // 2. Mock Provider Success
-    PaymentProvider::fake()->shouldReturn(new ProviderResponse(
-        status: AuthorizationStatus::Success,
-        providerReference: 'PROV_REF_2',
-        rawResponse: ['status' => 'success']
-    ));
+    // 2. Mock Paystack submit_otp success response
+    Http::fake([
+        'api.paystack.co/charge/submit_otp' => Http::response([
+            'status' => true,
+            'data' => [
+                'status' => 'success',
+                'reference' => 'PROV_REF_OTP',
+                'amount' => $payment->amount,
+            ],
+        ]),
+        'api.paystack.co/transaction/verify/*' => Http::response([
+            'status' => true,
+            'data' => [
+                'status' => 'success',
+                'reference' => 'PROV_REF_OTP',
+                'amount' => $payment->amount,
+                'customer' => ['email' => 'test@email.com'],
+            ],
+        ]),
+    ]);
 
     // 3. Make Request
     $response = $this->postJson("/api/payments/{$payment->reference}/validate", [
@@ -119,7 +188,8 @@ it('validates otp and finalizes payment', function () {
 
     // 4. Assertions
     $response->assertStatus(200)
-        ->assertJsonPath('status', 'success');
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('reference', $payment->reference);
 
     // Payment should be successful
     $this->assertDatabaseHas('payment_intents', [
@@ -127,10 +197,10 @@ it('validates otp and finalizes payment', function () {
         'status' => PaymentStatus::Success->value,
     ]);
 
-    // Transaction should be created (ProcessPaymentAttempt called)
+    // Transaction should be created
     $this->assertDatabaseHas('transactions', [
         'reference' => $payment->reference,
-        'status' => PaymentStatus::Success->value,
+        'status' => TransactionStatus::Success->value,
     ]);
 });
 
@@ -138,23 +208,39 @@ it('rejects validation for already successful payment', function () {
     $payment = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
         'status' => PaymentStatus::Success,
-        'reference' => 'REF_DONE',
-    ]);
-
-    $response = $this->postJson("/api/payments/{$payment->reference}/validate", ['otp' => '1234']);
-
-    $response->assertStatus(400)
-        ->assertJsonPath('message', 'Payment has already been successful.');
-});
-
-it('validates request data', function () {
-    $payment = PaymentIntent::factory()->create([
-        'business_id' => $this->business->id,
-        'reference' => 'REF_VAL',
     ]);
 
     $response = $this->postJson("/api/payments/{$payment->reference}/validate", [
-        'pin' => '12', // Too short
+        'otp' => '123456',
+    ]);
+
+    $response->assertStatus(400)
+        ->assertJsonPath('message', 'Payment has already been authorized.');
+});
+
+it('fails validation when no pending validating attempt exists', function () {
+    $payment = PaymentIntent::factory()->create([
+        'business_id' => $this->business->id,
+        'status' => PaymentStatus::Initiated,
+    ]);
+
+    // No attempt in DB
+
+    $response = $this->postJson("/api/payments/{$payment->reference}/validate", [
+        'pin' => '1234',
+    ]);
+
+    $response->assertStatus(400)
+        ->assertJsonPath('message', 'No pending authorization attempt found.');
+});
+
+it('validates request data rules', function () {
+    $payment = PaymentIntent::factory()->create([
+        'business_id' => $this->business->id,
+    ]);
+
+    $response = $this->postJson("/api/payments/{$payment->reference}/validate", [
+        'pin' => '12', // Too short (min:4)
     ]);
 
     $response->assertStatus(422)

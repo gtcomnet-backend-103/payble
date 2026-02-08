@@ -73,6 +73,7 @@ final class RequestPayment
                 'business_id' => $business->id,
                 'reference' => $paymentIntent->reference,
                 'amount' => $data['amount'],
+                'gross_amount' => $data['amount'],
                 'currency' => $currency,
                 'status' => TransactionStatus::Pending,
                 'mode' => $mode,

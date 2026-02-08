@@ -29,8 +29,9 @@ enum AuthorizationStatus: string
     {
         return match ($this) {
             self::Pending => [self::Success, self::Failed, self::PendingPin, self::PendingOtp, self::PendingTransfer],
-            self::PendingPin => [self::Success, self::Failed, self::PendingOtp],
-            self::PendingOtp => [self::Success, self::Failed],
+            self::PendingPin => [self::Success, self::Failed, self::PendingOtp, self::PendingPhone],
+            self::PendingOtp => [self::Success, self::Failed, self::PendingPin, self::PendingPhone],
+            self::PendingPhone => [self::Success, self::Failed, self::PendingPin, self::PendingOtp],
             self::PendingTransfer => [self::Success, self::Failed],
             self::Success, self::Failed => [],
         };
@@ -46,6 +47,15 @@ enum AuthorizationStatus: string
         return in_array($this, [
             self::Success,
             self::Failed,
+        ]);
+    }
+
+    public function validating(): bool
+    {
+        return in_array($this, [
+            self::PendingPhone,
+            self::PendingOtp,
+            self::PendingPin,
         ]);
     }
 }

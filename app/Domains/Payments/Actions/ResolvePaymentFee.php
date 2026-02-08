@@ -12,10 +12,6 @@ final class ResolvePaymentFee
 {
     /**
      * Resolve the fee for a payment attempt.
-     *
-     * @param PaymentIntent $paymentIntent
-     * @param PaymentChannel $channel
-     * @return int
      */
     public function execute(PaymentIntent $paymentIntent, PaymentChannel $channel): int
     {

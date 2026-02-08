@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Enums\PaymentChannel;
 use App\Models\Provider;
 use Illuminate\Foundation\Testing\RefreshDatabase;

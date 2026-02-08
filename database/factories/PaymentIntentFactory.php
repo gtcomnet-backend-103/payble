@@ -33,7 +33,7 @@ final class PaymentIntentFactory extends Factory
             'customer_id' => Customer::factory(),
             'amount' => $this->faker->numberBetween(1000, 1000000),
             'currency' => Currency::NGN,
-            'reference' => 'TRX_' . Str::random(10),
+            'reference' => 'TRX_'.Str::random(10),
             'status' => PaymentStatus::Initiated,
             'bearer' => FeeBearer::Merchant,
             'mode' => PaymentMode::Test,

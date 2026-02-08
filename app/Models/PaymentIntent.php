@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use RuntimeException;
 
 /**
  * @property int $id
@@ -102,8 +103,13 @@ final class PaymentIntent extends Model
 
     public function transitionTo(PaymentStatus $target): bool
     {
+        // Allow no-op if already in target status
+        if ($this->status === $target) {
+            return true;
+        }
+
         if (! $this->status->canTransitionTo($target)) {
-            throw new \RuntimeException("Invalid status transition from {$this->status->value} to {$target->value}");
+            throw new RuntimeException("Invalid status transition from {$this->status->value} to {$target->value}");
         }
 
         return (bool) $this->update(['status' => $target]);

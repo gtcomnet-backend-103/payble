@@ -14,7 +14,7 @@ final class AuthenticateBusiness
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -51,7 +51,7 @@ final class AuthenticateBusiness
 
         // Inject the actual decrypted sanctum token
         // auth_key is cast to 'encrypted', so it's already decrypted when accessed
-        $request->headers->set('Authorization', 'Bearer ' . $token->auth_key);
+        $request->headers->set('Authorization', 'Bearer '.$token->auth_key);
 
         // Set global mode for the request
         config(['app.payment_mode' => $token->mode->value]);

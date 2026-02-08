@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -17,9 +19,10 @@ return new class extends Migration
             $table->string('type');
             $table->string('currency', 3);
             $table->json('metadata')->nullable();
+            $table->bigInteger('balance')->default(0);
             $table->timestamps();
 
-            $table->unique(['currency', 'holder_id', 'holder_type']);
+            $table->unique(['currency', 'holder_id', 'holder_type', 'type']);
         });
     }
 

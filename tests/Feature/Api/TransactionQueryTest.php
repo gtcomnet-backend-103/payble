@@ -36,6 +36,7 @@ beforeEach(function () {
         'business_id' => $this->business->id,
         'reference' => $this->payment->reference,
         'amount' => 1000,
+        'gross_amount' => 1010, // Assuming 1000 + some fee
         'currency' => 'NGN',
         'status' => TransactionStatus::Pending,
         'mode' => 'test',

@@ -15,7 +15,7 @@ use App\Models\PaymentIntent;
 use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Mockery;
+use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
@@ -28,8 +28,8 @@ beforeEach(function () {
     ]);
 
     $this->provider = Provider::create([
-        'name' => 'Test Provider',
-        'identifier' => 'test_provider',
+        'name' => 'Paystack',
+        'identifier' => 'paystack',
         'is_active' => true,
         'is_healthy' => true,
         'supported_channels' => [PaymentChannel::Card->value],
@@ -58,13 +58,26 @@ it('processes old pending attempts', function () {
         'completed_at' => null,
     ]);
 
-    // 2. Mock Action
-    $processor = Mockery::mock(ProcessPaymentAttempt::class);
-    $processor->shouldReceive('execute')->once()->with(Mockery::on(fn ($arg) => $arg->id === $attempt->id));
+    // 2. Mock HTTP
+    Http::fake([
+        'api.paystack.co/transaction/verify/*' => Http::response([
+            'status' => true,
+            'data' => [
+                'status' => 'success',
+                'reference' => 'OLD_REF',
+                'amount' => 1000,
+            ],
+        ]),
+    ]);
 
     // 3. Execute Job
     $job = new VerifyPendingTransactions();
-    $job->handle($processor);
+    $job->handle(app(ProcessPaymentAttempt::class));
+
+    // 4. Verify Outcomes
+    $attempt->refresh();
+    expect($attempt->completed_at)->not->toBeNull();
+    expect($attempt->status)->toBe(AuthorizationStatus::Success);
 });
 
 it('ignores recent attempts', function () {
@@ -88,13 +101,17 @@ it('ignores recent attempts', function () {
         'completed_at' => null,
     ]);
 
-    // 2. Mock Action
-    $processor = Mockery::mock(ProcessPaymentAttempt::class);
-    $processor->shouldNotReceive('execute');
+    // 2. Mock HTTP (Should NOT be called)
+    Http::fake();
 
     // 3. Execute Job
     $job = new VerifyPendingTransactions();
-    $job->handle($processor);
+    $job->handle(app(ProcessPaymentAttempt::class));
+
+    // 4. Verify Outcomes
+    $attempt->refresh();
+    expect($attempt->completed_at)->toBeNull();
+    Http::assertNothingSent();
 });
 
 it('ignores completed attempts', function () {
@@ -118,11 +135,13 @@ it('ignores completed attempts', function () {
         'completed_at' => now(), // Already completed
     ]);
 
-    // 2. Mock Action
-    $processor = Mockery::mock(ProcessPaymentAttempt::class);
-    $processor->shouldNotReceive('execute');
+    // 2. Mock HTTP (Should NOT be called)
+    Http::fake();
 
     // 3. Execute Job
     $job = new VerifyPendingTransactions();
-    $job->handle($processor);
+    $job->handle(app(ProcessPaymentAttempt::class));
+
+    // 4. Verify Outcomes
+    Http::assertNothingSent();
 });

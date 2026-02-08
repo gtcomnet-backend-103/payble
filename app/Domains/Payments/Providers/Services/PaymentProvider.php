@@ -8,20 +8,12 @@ use App\Domains\Payments\Providers\Contracts\ProviderAdapter;
 use App\Domains\Payments\Providers\DataTransferObjects\PaymentAuthorizeDTO;
 use App\Domains\Payments\Providers\DataTransferObjects\ProviderResponse;
 use App\Domains\Payments\Providers\DataTransferObjects\WebhookPayloadDTO;
-use App\Domains\Payments\Providers\Testing\FakePaymentProvider;
 use App\Enums\PaymentChannel;
 use App\Models\Provider;
 
-class PaymentProvider
+final class PaymentProvider
 {
     public function __construct(private ProviderResolver $resolver) {}
-
-    public static function fake(): FakePaymentProvider
-    {
-        \App\Domains\Payments\Providers\Facades\PaymentProvider::swap($fake = new FakePaymentProvider());
-
-        return $fake;
-    }
 
     public function authorize(Provider $provider, PaymentAuthorizeDTO $dto): ProviderResponse
     {
