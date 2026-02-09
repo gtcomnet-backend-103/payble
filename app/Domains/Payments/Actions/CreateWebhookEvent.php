@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domains\Payments\Actions;
 
+use App\Contracts\IdempotentAction;
+use App\Domains\Payments\Events\WebhookReceived;
 use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Models\Provider;
 use App\Models\WebhookEvent;
 
-final class CreateWebhookEvent
+final class CreateWebhookEvent implements IdempotentAction
 {
     /**
      * @param  array<string, mixed>  $payload
@@ -30,12 +32,16 @@ final class CreateWebhookEvent
         }
 
         // Persist Raw Event
-        return WebhookEvent::create([
+        $event = WebhookEvent::create([
             'provider' => $provider->identifier,
             'provider_event_id' => $webhookPayload->providerEventId,
             'event_type' => $webhookPayload->eventType,
             'raw_payload' => $payload,
             'received_at' => now(),
         ]);
+
+        WebhookReceived::dispatch($event);
+
+        return $event;
     }
 }

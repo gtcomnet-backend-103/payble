@@ -15,4 +15,9 @@ final class ProviderResponse
         public array $rawResponse = [],
         public array $metadata = []
     ) {}
+
+    public function isSuccessful(): bool
+    {
+        return $this->status === AuthorizationStatus::Success;
+    }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Payments\Actions;
 
+use App\Contracts\IdempotentAction;
 use App\Domains\Payments\Providers\DataTransferObjects\CustomerDTO;
 use App\Domains\Payments\Providers\DataTransferObjects\PaymentAuthorizeDTO;
 use App\Domains\Payments\Providers\Facades\PaymentProvider;
@@ -17,7 +18,7 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-final class AuthorizePayment
+final class AuthorizePayment implements IdempotentAction
 {
     public function __construct(
         private SelectProvider $selectProvider,

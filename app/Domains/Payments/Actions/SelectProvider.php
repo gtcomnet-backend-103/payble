@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domains\Payments\Actions;
 
+use App\Contracts\IdempotentAction;
 use App\Enums\PaymentChannel;
 use App\Models\Provider;
 use Exception;
 
-final class SelectProvider
+final class SelectProvider implements IdempotentAction
 {
     /**
      * Select the best provider for the given channel.

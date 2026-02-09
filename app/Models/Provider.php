@@ -41,6 +41,8 @@ final class Provider extends Model
     protected $fillable = [
         'name',
         'identifier',
+        'mode',
+        'is_payout_enabled',
         'is_active',
         'is_healthy',
         'supported_channels',
@@ -50,10 +52,19 @@ final class Provider extends Model
     public function casts(): array
     {
         return [
+            'mode' => \App\Enums\PaymentMode::class,
+            'is_payout_enabled' => 'boolean',
             'is_active' => 'boolean',
             'is_healthy' => 'boolean',
             'supported_channels' => 'array',
             'metadata' => 'array',
         ];
+    }
+
+    public function scopeForPayout($query, \App\Enums\PaymentMode $mode)
+    {
+        return $query->where('is_active', true)
+            ->where('is_payout_enabled', true)
+            ->where('mode', $mode);
     }
 }

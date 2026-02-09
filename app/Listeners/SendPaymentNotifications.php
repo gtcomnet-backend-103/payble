@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Domains\Payments\Listeners;
+namespace App\Listeners;
 
-use App\Domains\Payments\Notifications\PaymentReceipt;
-use App\Domains\Payments\Notifications\PaymentReceived;
-use App\Events\TransactionSuccessful;
+use App\Domains\Payments\Events\TransactionSuccessful;
 use App\Jobs\SendBusinessWebhook;
+use App\Notifications\PaymentReceipt;
+use App\Notifications\PaymentReceived;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
 final class SendPaymentNotifications implements ShouldQueue

@@ -1,7 +1,7 @@
 ### API Configuration
 @baseUrl = http://rabbitapp.test
 @apiKey =
-@reference = REF_1001sfsdafddlsdednd
+@reference = REF_1001sfsdafddlsdedndammd
 
 ### 1. Initialize Payment
 # Create a new payment intent for a customer
@@ -15,7 +15,7 @@ Accept: application/json
     "email": "customer@example.com",
     "currency": "NGN",
     "reference": "{{reference}}",
-    "bearer": "split",
+    "bearer": "customer",
     "metadata": {
         "order_id": "12345"
     }

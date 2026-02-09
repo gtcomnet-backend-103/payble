@@ -58,7 +58,6 @@ it('creates a payment request with email', function () {
     ]);
 
     $this->assertDatabaseHas('transactions', [
-        'amount' => 500000,
         'reference' => 'REF-123456',
     ]);
 

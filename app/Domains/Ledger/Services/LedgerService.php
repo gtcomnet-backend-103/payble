@@ -6,6 +6,7 @@ namespace App\Domains\Ledger\Services;
 
 use App\Enums\AccountType;
 use App\Enums\EntryDirection;
+use App\Enums\PaymentMode;
 use App\Models\Account;
 use App\Models\LedgerBatch;
 use App\Models\LedgerEntry;
@@ -23,6 +24,7 @@ final class LedgerService
         ?Model $holder,
         AccountType $type,
         string $currency = 'NGN',
+        PaymentMode $mode = PaymentMode::Live,
         array $metadata = []
     ): Account {
         return Account::firstOrCreate(
@@ -31,6 +33,7 @@ final class LedgerService
                 'holder_type' => $holder?->getMorphClass(),
                 'type' => $type,
                 'currency' => $currency,
+                'mode' => $mode,
             ],
             [
                 'metadata' => $metadata,
@@ -38,34 +41,34 @@ final class LedgerService
         );
     }
 
-    public function customerWallet(Model $customer, string $currency): Account
+    public function customerWallet(Model $customer, string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount($customer, AccountType::CUSTOMER_WALLET, $currency);
+        return $this->getAccount($customer, AccountType::CUSTOMER_WALLET, $currency, $mode);
     }
 
-    public function businessReceivable(Model $business, string $currency): Account
+    public function businessReceivable(Model $business, string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount($business, AccountType::BUSINESS_WALLET, $currency);
+        return $this->getAccount($business, AccountType::BUSINESS_WALLET, $currency, $mode);
     }
 
-    public function providerReceivable(Model $provider, string $currency): Account
+    public function providerReceivable(Model $provider, string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount($provider, AccountType::PROVIDER_CLEARING, $currency);
+        return $this->getAccount($provider, AccountType::PROVIDER_CLEARING, $currency, $mode);
     }
 
-    public function platformReceivable(string $currency): Account
+    public function platformReceivable(string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount(null, AccountType::PLATFORM_CLEARING, $currency);
+        return $this->getAccount(null, AccountType::PLATFORM_CLEARING, $currency, $mode);
     }
 
-    public function platformRevenue(string $currency): Account
+    public function platformRevenue(string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount(null, AccountType::PLATFORM_FEE_REVENUE, $currency);
+        return $this->getAccount(null, AccountType::PLATFORM_FEE_REVENUE, $currency, $mode);
     }
 
-    public function providerFee(Provider $provider, string $currency): Account
+    public function providerFee(Provider $provider, string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount($provider, AccountType::PROVIDER_FEE_EXPENSE, $currency);
+        return $this->getAccount($provider, AccountType::PROVIDER_FEE_EXPENSE, $currency, $mode);
     }
 
     /**

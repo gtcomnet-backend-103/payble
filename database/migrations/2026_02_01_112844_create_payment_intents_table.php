@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignId('business_id')->constrained()->cascadeOnDelete();
             $table->foreignId('customer_id')->constrained()->cascadeOnDelete();
             $table->unsignedBigInteger('amount');
+            $table->unsignedBigInteger('amount_paid')->default(0);
             $table->string('currency', 3);
             $table->string('reference');
             $table->string('status');

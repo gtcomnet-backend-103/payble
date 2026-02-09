@@ -23,13 +23,10 @@ final class TransactionFactory extends Factory
 
         return [
             'business_id' => Business::factory(),
-            'amount' => $amount,
-            'gross_amount' => $amount,
             'currency' => 'NGN',
             'status' => 'success',
             'reference' => 'TXN_'.$this->faker->unique()->bothify('??###'),
             'mode' => 'test',
-            'channel' => 'card',
         ];
     }
 }

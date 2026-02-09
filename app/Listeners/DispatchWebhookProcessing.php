@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
-use App\Events\WebhookReceived;
+use App\Domains\Payments\Events\WebhookReceived;
 use App\Jobs\ProcessWebhook;
 
 final class DispatchWebhookProcessing

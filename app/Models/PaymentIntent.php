@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use RuntimeException;
 
 /**
@@ -67,6 +68,7 @@ final class PaymentIntent extends Model
         'bearer',
         'mode',
         'metadata',
+        'amount_paid',
     ];
 
     public function business(): BelongsTo
@@ -113,5 +115,10 @@ final class PaymentIntent extends Model
         }
 
         return (bool) $this->update(['status' => $target]);
+    }
+
+    public function transaction(): MorphOne
+    {
+        return $this->morphOne(Transaction::class, 'source');
     }
 }

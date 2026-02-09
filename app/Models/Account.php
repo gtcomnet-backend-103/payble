@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @property int $id
@@ -50,6 +49,7 @@ final class Account extends Model
         'holder_type',
         'type',
         'currency',
+        'mode',
         'metadata',
     ];
 
@@ -58,6 +58,7 @@ final class Account extends Model
         return [
             'metadata' => 'array',
             'type' => AccountType::class,
+            'mode' => \App\Enums\PaymentMode::class,
         ];
     }
 
@@ -69,12 +70,5 @@ final class Account extends Model
     public function entries(): HasMany
     {
         return $this->hasMany(LedgerEntry::class, 'ledger_account_id');
-    }
-
-    public function getDerivedBalance(): int
-    {
-        return (int) DB::table('account_balances')
-            ->where('ledger_account_id', $this->id)
-            ->value('balance') ?? 0;
     }
 }

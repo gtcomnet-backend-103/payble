@@ -7,13 +7,15 @@ namespace App\Enums;
 enum TransactionStatus: string
 {
     case Pending = 'pending';
+    case Processing = 'processing';
     case Success = 'success';
     case Failed = 'failed';
 
     public function transitions(): array
     {
         return match ($this) {
-            self::Pending => [self::Success, self::Failed],
+            self::Pending => [self::Processing, self::Success, self::Failed],
+            self::Processing => [self::Success, self::Failed],
             self::Failed, self::Success => [],
         };
     }

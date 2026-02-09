@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Payments\Actions;
 
+use App\Contracts\IdempotentAction;
 use App\Enums\Currency;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentMode;
@@ -19,7 +20,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Throwable;
 
-final class RequestPayment
+final class RequestPayment implements IdempotentAction
 {
     /**
      * @param array{
@@ -69,11 +70,9 @@ final class RequestPayment
                 'metadata' => $data['metadata'] ?? [],
             ]);
 
-            return Transaction::create([
+            return $paymentIntent->transaction()->create([
                 'business_id' => $business->id,
                 'reference' => $paymentIntent->reference,
-                'amount' => $data['amount'],
-                'gross_amount' => $data['amount'],
                 'currency' => $currency,
                 'status' => TransactionStatus::Pending,
                 'mode' => $mode,

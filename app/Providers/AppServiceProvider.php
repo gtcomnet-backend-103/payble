@@ -16,13 +16,13 @@ final class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \Illuminate\Support\Facades\Event::listen(
-            \App\Events\TransactionSuccessful::class,
-            [\App\Domains\Ledger\Listeners\ProcessTransactionLedger::class, 'handle']
+            \App\Domains\Payments\Events\TransactionSuccessful::class,
+            [\App\Listeners\ProcessTransactionLedger::class, 'handle']
         );
 
         \Illuminate\Support\Facades\Event::listen(
-            \App\Events\TransactionSuccessful::class,
-            [\App\Domains\Payments\Listeners\SendPaymentNotifications::class, 'handle']
+            \App\Domains\Payments\Events\TransactionSuccessful::class,
+            [\App\Listeners\SendPaymentNotifications::class, 'handle']
         );
     }
 }

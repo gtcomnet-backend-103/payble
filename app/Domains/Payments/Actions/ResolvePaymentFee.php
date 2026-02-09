@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domains\Payments\Actions;
 
+use App\Contracts\IdempotentAction;
 use App\Enums\PaymentChannel;
 use App\Models\FeeConfig;
 use App\Models\PaymentIntent;
 
-final class ResolvePaymentFee
+final class ResolvePaymentFee implements IdempotentAction
 {
     /**
      * Resolve the fee for a payment attempt.

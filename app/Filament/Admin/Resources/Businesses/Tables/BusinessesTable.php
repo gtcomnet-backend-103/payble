@@ -6,8 +6,8 @@ namespace App\Filament\Admin\Resources\Businesses\Tables;
 
 use App\Domains\Ledger\Services\LedgerService;
 use App\Models\Business;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -28,9 +28,10 @@ final class BusinessesTable
                     ->searchable(),
                 TextColumn::make('balance')
                     ->state(function (Business $record) {
-                        $wallet = app(LedgerService::class)->businessReceivable($record);
+                        $service = app(LedgerService::class);
+                        $wallet = $service->businessReceivable($record, 'NGN');
 
-                        return Number::currency($wallet->balance / 100, $wallet->currency);
+                        return Number::currency($service->getBalance($wallet) / 100, $wallet->currency);
                     }),
                 TextColumn::make('created_at')
                     ->dateTime()
@@ -51,10 +52,13 @@ final class BusinessesTable
             ])
             ->recordActions([
                 EditAction::make(),
+                Action::make('verify')
+                    ->requiresConfirmation()
+                    ->action(fn (Business $record) => $record->update(['verified_at' => now()])),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+
                 ]),
             ]);
     }

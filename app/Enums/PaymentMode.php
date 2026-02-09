@@ -8,4 +8,9 @@ enum PaymentMode: string
 {
     case Test = 'test';
     case Live = 'live';
+
+    public function isTest(): bool
+    {
+        return $this === self::Test;
+    }
 }

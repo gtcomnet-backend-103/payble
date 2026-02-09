@@ -8,10 +8,12 @@ use App\Enums\Currency;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentMode;
 use App\Enums\TransactionStatus;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use RuntimeException;
 
 /**
@@ -57,15 +59,11 @@ final class Transaction extends Model
 
     protected $fillable = [
         'business_id',
-        'amount',
         'currency',
         'status',
         'reference',
         'mode',
-        'channel',
-        'fees',
         'metadata',
-        'gross_amount',
     ];
 
     public function business(): BelongsTo
@@ -73,9 +71,9 @@ final class Transaction extends Model
         return $this->belongsTo(Business::class);
     }
 
-    public function paymentIntent(): BelongsTo
+    public function source(): MorphTo
     {
-        return $this->belongsTo(PaymentIntent::class, 'reference', 'reference');
+        return $this->morphTo();
     }
 
     public function ledgerEntries(): HasMany
@@ -86,8 +84,6 @@ final class Transaction extends Model
     public function casts(): array
     {
         return [
-            'amount' => 'integer',
-            'fees' => 'integer',
             'currency' => Currency::class,
             'status' => TransactionStatus::class,
             'mode' => PaymentMode::class,
@@ -108,5 +104,36 @@ final class Transaction extends Model
         }
 
         return (bool) $this->update(['status' => $target]);
+    }
+
+    public function paymentIntent(): BelongsTo
+    {
+        return $this->belongsTo(PaymentIntent::class, 'source_id');
+    }
+
+    protected function amount(): Attribute
+    {
+        return Attribute::get(fn () => $this->source?->amount);
+    }
+
+    protected function grossAmount(): Attribute
+    {
+        return Attribute::get(fn () => $this->amount);
+    }
+
+    protected function fees(): Attribute
+    {
+        return Attribute::get(fn () => ($this->paymentIntent?->amount_paid ?? 0) - ($this->paymentIntent?->amount ?? 0));
+    }
+
+    protected function channel(): Attribute
+    {
+        return Attribute::get(function () {
+            if ($this->source_type === PaymentIntent::class) {
+                return $this->source?->attempts()->where('status', 'success')->first()?->channel;
+            }
+
+            return null;
+        });
     }
 }

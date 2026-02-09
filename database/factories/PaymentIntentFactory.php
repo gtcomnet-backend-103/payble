@@ -8,6 +8,7 @@ use App\Enums\Currency;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentMode;
 use App\Enums\PaymentStatus;
+use App\Enums\TransactionStatus;
 use App\Models\Business;
 use App\Models\Customer;
 use App\Models\PaymentIntent;
@@ -39,5 +40,23 @@ final class PaymentIntentFactory extends Factory
             'mode' => PaymentMode::Test,
             'metadata' => [],
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (PaymentIntent $paymentIntent) {
+            if ($paymentIntent->transaction()->doesntExist()) {
+                $paymentIntent->transaction()->create([
+                    'business_id' => $paymentIntent->business_id,
+                    'reference' => $paymentIntent->reference,
+                    'currency' => $paymentIntent->currency,
+                    'status' => TransactionStatus::Pending,
+                    'mode' => $paymentIntent->mode,
+                    'metadata' => $paymentIntent->metadata ?? [],
+                ]);
+
+                $paymentIntent->unsetRelation('transaction');
+            }
+        });
     }
 }

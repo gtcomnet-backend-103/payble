@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Events;
+namespace App\Domains\Payments\Events;
 
 use App\Models\WebhookEvent;
 use Illuminate\Broadcasting\InteractsWithSockets;

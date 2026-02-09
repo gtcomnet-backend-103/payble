@@ -8,7 +8,7 @@ use App\Domains\Ledger\Services\LedgerService;
 use App\Enums\EntryDirection;
 use App\Models\Business;
 use App\Models\LedgerEntry;
-use App\Models\Transaction;
+use App\Models\PaymentIntent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -29,15 +29,15 @@ it('atomically updates balances using double entry', function () {
     $debitAccount = $this->ledgerService->businessReceivable($this->business, 'NGN');
     $creditAccount = $this->ledgerService->platformReceivable('NGN');
 
-    $transaction = Transaction::create([
+    $paymentIntent = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
         'amount' => 1000,
-        'gross_amount' => 1000,
+        'amount_paid' => 1000,
         'currency' => 'NGN',
-        'status' => 'success',
+        'status' => \App\Enums\PaymentStatus::Success,
         'reference' => 'TX_123',
-        'mode' => 'live',
     ]);
+    $transaction = $paymentIntent->transaction()->first();
 
     $batch = $this->ledgerService->startBatch($transaction);
 
@@ -65,15 +65,15 @@ it('is idempotent via ledger batches', function () {
     $debitAccount = $this->ledgerService->businessReceivable($this->business, 'NGN');
     $creditAccount = $this->ledgerService->platformReceivable('NGN');
 
-    $transaction = Transaction::create([
+    $paymentIntent = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
         'amount' => 1000,
-        'gross_amount' => 1000,
+        'amount_paid' => 1000,
         'currency' => 'NGN',
-        'status' => 'success',
+        'status' => \App\Enums\PaymentStatus::Success,
         'reference' => 'TX_IDEM',
-        'mode' => 'live',
     ]);
+    $transaction = $paymentIntent->transaction()->first();
 
     $batch = $this->ledgerService->startBatch($transaction);
 
@@ -96,16 +96,16 @@ it('handles concurrent updates correctly', function () {
 
     // Simulate 3 increments
     $this->ledgerService->post(
-        $this->ledgerService->startBatch(Transaction::factory()->create()),
-        Transaction::factory()->create(),
+        $this->ledgerService->startBatch(PaymentIntent::factory()->create()->transaction),
+        PaymentIntent::factory()->create()->transaction,
         $account,
         $this->ledgerService->platformReceivable('NGN'),
         100
     );
 
     $this->ledgerService->post(
-        $this->ledgerService->startBatch(Transaction::factory()->create()),
-        Transaction::factory()->create(),
+        $this->ledgerService->startBatch(PaymentIntent::factory()->create()->transaction),
+        PaymentIntent::factory()->create()->transaction,
         $account,
         $this->ledgerService->platformReceivable('NGN'),
         200
@@ -118,15 +118,15 @@ it('supports fluent transaction API via facade', function () {
     $debitAccount = $this->ledgerService->businessReceivable($this->business, 'NGN');
     $creditAccount = $this->ledgerService->platformReceivable('NGN');
 
-    $transaction = Transaction::create([
+    $paymentIntent = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
         'amount' => 1000,
-        'gross_amount' => 1000,
+        'amount_paid' => 1000,
         'currency' => 'NGN',
-        'status' => 'success',
+        'status' => \App\Enums\PaymentStatus::Success,
         'reference' => 'TX_FLUENT',
-        'mode' => 'live',
     ]);
+    $transaction = $paymentIntent->transaction()->first();
 
     \App\Domains\Ledger\Facades\Ledger::transaction($transaction)
         ->entries([
@@ -136,4 +136,13 @@ it('supports fluent transaction API via facade', function () {
 
     expect($this->ledgerService->getBalance($debitAccount))->toBe(1000)
         ->and($this->ledgerService->getBalance($creditAccount))->toBe(-1000);
+});
+
+it('distinguishes between test and live mode accounts', function () {
+    $liveAccount = $this->ledgerService->businessReceivable($this->business, 'NGN', \App\Enums\PaymentMode::Live);
+    $testAccount = $this->ledgerService->businessReceivable($this->business, 'NGN', \App\Enums\PaymentMode::Test);
+
+    expect($liveAccount->id)->not->toBe($testAccount->id);
+    expect($liveAccount->mode)->toBe(\App\Enums\PaymentMode::Live);
+    expect($testAccount->mode)->toBe(\App\Enums\PaymentMode::Test);
 });

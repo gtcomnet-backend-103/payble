@@ -6,12 +6,12 @@ namespace Tests\Feature\Domains\Payments\Actions;
 
 use App\Domains\Payments\Actions\AuthorizePayment;
 use App\Domains\Payments\Actions\ProcessPaymentAttempt;
+use App\Domains\Payments\Events\TransactionSuccessful;
 use App\Enums\AuthorizationStatus;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Enums\TransactionStatus;
-use App\Events\TransactionSuccessful;
 use App\Models\Business;
 use App\Models\PaymentIntent;
 use App\Models\Provider;
@@ -141,15 +141,11 @@ it('transitions to failed when provider HTTP response fails', function () {
 it('ensures transaction exists (idempotency)', function () {
     Event::fake();
 
-    // If transaction already exists, it shouldn't create a new one, but use it.
-    $existingTx = Transaction::create([
-        'business_id' => $this->business->id,
-        'amount' => 1000,
-        'gross_amount' => 1000,
-        'currency' => 'NGN',
+    // Transaction is automatically created by factory hook.
+    // Use it to simulate an existing pending transaction.
+    $existingTx = $this->payment->transaction;
+    $existingTx->update([
         'status' => 'pending',
-        'reference' => $this->payment->reference,
-        'channel' => PaymentChannel::Card,
         'mode' => 'live',
     ]);
 

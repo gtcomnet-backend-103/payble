@@ -16,14 +16,11 @@ return new class extends Migration
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('business_id')->constrained()->cascadeOnDelete();
-            $table->unsignedBigInteger('amount');
-            $table->unsignedBigInteger('gross_amount');
+            $table->morphs('source');
             $table->string('currency', 3);
             $table->string('status');
             $table->string('reference');
             $table->string('mode');
-            $table->string('channel')->nullable();
-            $table->unsignedBigInteger('fees')->default(0);
             $table->json('metadata')->nullable();
             $table->timestamps();
 

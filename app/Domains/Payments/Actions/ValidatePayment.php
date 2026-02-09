@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Payments\Actions;
 
+use App\Contracts\IdempotentAction;
 use App\Domains\Payments\Providers\DataTransferObjects\PaymentValidateDTO;
 use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
 
-final class ValidatePayment
+final class ValidatePayment implements IdempotentAction
 {
     public function __construct(
         private ProcessPaymentAttempt $processPaymentAttempt

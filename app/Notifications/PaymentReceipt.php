@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Domains\Payments\Notifications;
+namespace App\Notifications;
 
 use App\Models\Transaction;
 use Illuminate\Bus\Queueable;

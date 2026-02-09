@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Domains\Payments\Actions;
 
+use App\Contracts\IdempotentAction;
+use App\Domains\Payments\Events\TransactionSuccessful;
 use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\TransactionStatus;
-use App\Events\TransactionSuccessful;
 use App\Models\AuthorizationAttempt;
-use App\Models\Provider;
 use App\Models\Transaction;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-final class ProcessPaymentAttempt
+final class ProcessPaymentAttempt implements IdempotentAction
 {
     public function execute(AuthorizationAttempt $attempt): bool
     {
@@ -66,18 +66,7 @@ final class ProcessPaymentAttempt
             }
 
             // A: Sync Transaction Status
-            $transaction = Transaction::updateOrCreate([
-                'reference' => $payment->reference,
-            ], [
-                'channel' => $attempt->channel,
-                'business_id' => $payment->business_id,
-                'amount' => $payment->amount,
-                'gross_amount' => $attempt->amount, // Total charged to customer
-                'fees' => $attempt->fee, // Total platform commission
-                'currency' => $payment->currency,
-                'status' => TransactionStatus::Pending,
-                'mode' => $payment->mode,
-            ]);
+            $transaction = $payment->transaction;
 
             // B: Idempotency check on the Transaction level
             if ($transaction->status === TransactionStatus::Success) {
@@ -85,6 +74,8 @@ final class ProcessPaymentAttempt
 
                 return true;
             }
+
+            $payment->update(['amount_paid' => $attempt->amount]);
 
             // C: Final State Transitions
             $finalStatus = $verificationResponse->status;

@@ -3,7 +3,8 @@
     "notPath": [
         "tests/TestCase.php",
         "tmp",
-        "app/Domains/Payments/Providers/Testing/FakePaymentProvider.php"
+        "app/Domains/Payments/Providers/Testing/FakePaymentProvider.php",
+        "app/Domains/Payments/Providers/Services/ProviderResolver.php"
     ],
     "rules": {
         "array_push": true,

@@ -2,17 +2,16 @@
 
 declare(strict_types=1);
 
-use App\Domains\Payments\Listeners\SendPaymentNotifications;
-use App\Domains\Payments\Notifications\PaymentReceipt;
-use App\Domains\Payments\Notifications\PaymentReceived;
-use App\Events\TransactionSuccessful;
+use App\Domains\Payments\Events\TransactionSuccessful;
 use App\Jobs\SendBusinessWebhook;
+use App\Listeners\SendPaymentNotifications;
 use App\Models\Business;
 use App\Models\Customer;
 use App\Models\PaymentIntent;
 use App\Models\Provider;
-use App\Models\Transaction;
 use App\Models\User;
+use App\Notifications\PaymentReceipt;
+use App\Notifications\PaymentReceived;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Notification;
 
@@ -48,34 +47,22 @@ it('sends notifications and webhook on successful transaction', function () {
     $intent = PaymentIntent::create([
         'business_id' => $business->id,
         'customer_id' => $customer->id,
-        'amount' => 1000,
+        'amount' => 1000, // 10.00
+        'amount_paid' => 1000,
         'currency' => 'NGN',
         'status' => App\Enums\PaymentStatus::Success,
         'bearer' => App\Enums\FeeBearer::Merchant,
         'mode' => App\Enums\PaymentMode::Live,
-        'reference' => 'REF_INTENT_123',
+        'reference' => 'REF_SHARED_123',
     ]);
 
-    $transaction = Transaction::create([
+    $transaction = $intent->transaction()->create([
         'business_id' => $business->id,
-        'amount' => 1000,
-        'gross_amount' => 1000,
         'currency' => 'NGN',
         'status' => App\Enums\TransactionStatus::Success,
-        'channel' => App\Enums\PaymentChannel::Card,
         'mode' => App\Enums\PaymentMode::Live,
-        'reference' => 'REF_TX_123',
+        'reference' => 'REF_SHARED_123',
     ]);
-
-    // Manually associate intent because factories/relations might be tricky in raw create
-    // But Transaction belongsTo PaymentIntent via reference, so ensuring reference matches.
-    // Wait, Transaction model has: return $this->belongsTo(PaymentIntent::class, 'reference', 'reference');
-    // So 'reference' must match.
-    $transaction->update(['reference' => $intent->reference]);
-    // Wait, intent reference is 'REF_INTENT_123', transaction is 'REF_TX_123'. They usually share reference?
-    // Let's make them match.
-    $intent->update(['reference' => 'REF_SHARED_123']);
-    $transaction->update(['reference' => 'REF_SHARED_123']);
 
     $event = new TransactionSuccessful(
         transaction: $transaction,
@@ -153,6 +140,7 @@ it('does not send webhook if business has no webhook url', function () {
         'business_id' => $business->id,
         'customer_id' => $customer->id,
         'amount' => 1000,
+        'amount_paid' => 1000,
         'currency' => 'NGN',
         'status' => App\Enums\PaymentStatus::Success,
         'bearer' => App\Enums\FeeBearer::Merchant,
@@ -160,13 +148,10 @@ it('does not send webhook if business has no webhook url', function () {
         'reference' => 'REF_SHARED_NO_WEBHOOK',
     ]);
 
-    $transaction = Transaction::create([
+    $transaction = $intent->transaction()->create([
         'business_id' => $business->id,
-        'amount' => 1000,
-        'gross_amount' => 1000,
         'currency' => 'NGN',
         'status' => App\Enums\TransactionStatus::Success,
-        'channel' => App\Enums\PaymentChannel::Card,
         'mode' => App\Enums\PaymentMode::Live,
         'reference' => 'REF_SHARED_NO_WEBHOOK',
     ]);

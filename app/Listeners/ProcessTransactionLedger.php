@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Domains\Ledger\Listeners;
+namespace App\Listeners;
 
 use App\Domains\Ledger\Actions\RecordPaymentLedgerPostings;
+use App\Domains\Payments\Events\TransactionSuccessful;
 use App\Enums\FeeBearer;
-use App\Events\TransactionSuccessful;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
 final class ProcessTransactionLedger implements ShouldQueue

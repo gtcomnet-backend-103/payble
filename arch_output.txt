@@ -1,0 +1,64 @@
+
+  ....⨯.⨯.⨯⨯⨯.
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Unit\ArchTest > infrastructure depends only on domain          
+  Expecting 'App\Infrastructure' to use 'App\Domains'.
+
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Unit\ArchTest > db transact…  ArchExpectationFailedException   
+  Expecting 'Illuminate\Support\Facades\DB' not to be used on 'App\Domains\Payments\Actions\ProcessPaymentAttempt'.
+
+  at app/Domains/Payments/Actions/ProcessPaymentAttempt.php:16
+     12▕ use App\Models\AuthorizationAttempt;
+     13▕ use App\Models\Provider;
+     14▕ use App\Models\Transaction;
+     15▕ use Exception;
+  ➜  16▕ use Illuminate\Support\Facades\DB;
+     17▕ use Illuminate\Support\Facades\Log;
+     18▕ use App\Contracts\IdempotentAction;
+     19▕ 
+     20▕ final class ProcessPaymentAttempt implements IdempotentAction
+
+  1   app/Domains/Payments/Actions/ProcessPaymentAttempt.php:16
+
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Unit\ArchTest > dtos are framew…  DirectoryNotFoundException   
+  The "/Users/macbookpro/Documents/codebank/rabbitapp/vendor/composer/../../app/Domains/*/DTOs" directory does not exist.
+
+  at vendor/symfony/finder/Finder.php:648
+    644▕             } elseif ($glob = glob($dir, (\defined('GLOB_BRACE') ? \GLOB_BRACE : 0) | \GLOB_ONLYDIR | \GLOB_NOSORT)) {
+    645▕                 sort($glob);
+    646▕                 $resolvedDirs[] = array_map($this->normalizeDir(...), $glob);
+    647▕             } else {
+  ➜ 648▕                 throw new DirectoryNotFoundException(\sprintf('The "%s" directory does not exist.', $dir));
+    649▕             }
+    650▕         }
+    651▕ 
+    652▕         $this->dirs = array_merge($this->dirs, ...$resolvedDirs);
+
+
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Unit\ArchTest > controllers only talk to actions               
+  Expecting 'App\Http\Controllers' to only use 'App\Domains\*\Actions, Illuminate'. However, it also uses 'App\Events\WebhookReceived'.
+
+  ────────────────────────────────────────────────────────────────────────────  
+   FAILED  Tests\Unit\ArchTest > models are not used directly in views          
+  Expecting 'resources/views' to be a class name or namespace, but it contains a path.
+
+  at tests/Unit/ArchTest.php:151
+    147▕ |--------------------------------------------------------------------------
+    148▕ */
+    149▕ test('models are not used directly in views')
+    150▕     ->expect('App\Models')
+  ➜ 151▕     ->not->toBeUsedIn('resources/views');
+    152▕ 
+    153▕ 
+    154▕ /*
+    155▕ |--------------------------------------------------------------------------
+
+  1   tests/Unit/ArchTest.php:151
+
+
+  Tests:    5 failed, 7 passed (37 assertions)
+  Duration: 11.06s
+

@@ -24,13 +24,13 @@ final class RecordPaymentLedgerPostings
         int $providerFee
     ): void {
         $currency = $transaction->currency->value;
-        $gross = $transaction->gross_amount; // Total paid by customer (e.g., 10500)
+        $gross = $transaction->source->amount_paid;
 
         // Retrieve accounts
-        $providerReceivable = $this->ledgerService->providerReceivable($provider, $currency);
-        $platformRevenue = $this->ledgerService->platformRevenue($currency);
-        $providerFeeExpense = $this->ledgerService->providerFee($provider, $currency);
-        $businessWallet = $this->ledgerService->businessReceivable($transaction->business, $currency);
+        $providerReceivable = $this->ledgerService->providerReceivable($provider, $currency, $transaction->mode);
+        $platformRevenue = $this->ledgerService->platformRevenue($currency, $transaction->mode);
+        $providerFeeExpense = $this->ledgerService->providerFee($provider, $currency, $transaction->mode);
+        $businessWallet = $this->ledgerService->businessReceivable($transaction->business, $currency, $transaction->mode);
 
         /*
         |--------------------------------------------------------------------------

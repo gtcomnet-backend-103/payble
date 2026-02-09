@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Api;
 
 use App\Enums\PaymentStatus;
-use App\Enums\TransactionStatus;
 use App\Models\Business;
 use App\Models\PaymentIntent;
-use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -32,15 +30,7 @@ beforeEach(function () {
         'status' => PaymentStatus::Pending,
     ]);
 
-    $this->transaction = Transaction::create([
-        'business_id' => $this->business->id,
-        'reference' => $this->payment->reference,
-        'amount' => 1000,
-        'gross_amount' => 1010, // Assuming 1000 + some fee
-        'currency' => 'NGN',
-        'status' => TransactionStatus::Pending,
-        'mode' => 'test',
-    ]);
+    $this->transaction = $this->payment->transaction;
 });
 
 it('can query a transaction by reference', function () {

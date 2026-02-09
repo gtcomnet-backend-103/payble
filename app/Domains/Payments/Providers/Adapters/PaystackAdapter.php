@@ -194,4 +194,69 @@ final class PaystackAdapter implements ProviderAdapter
     {
         return 1000;
     }
+
+    public function initiateTransfer(\App\Domains\Payouts\DataTransferObjects\PayoutTransferData $dto): ProviderResponse
+    {
+        // 1. Create Transfer Recipient
+        $recipientResponse = Http::withToken(config('services.paystack.secret'))
+            ->post('https://api.paystack.co/transferrecipient', [
+                'type' => 'nuban',
+                'name' => $dto->account_name,
+                'account_number' => $dto->account_number,
+                'bank_code' => $dto->bank_code,
+                'currency' => $dto->currency,
+            ]);
+
+        if ($recipientResponse->failed()) {
+            return new ProviderResponse(
+                status: AuthorizationStatus::Failed,
+                providerReference: $dto->reference, // No provider ref yet
+                rawResponse: $recipientResponse->json() ?? [],
+                metadata: ['error' => 'Recipient creation failed: '.$recipientResponse->reason()]
+            );
+        }
+
+        $recipientCode = $recipientResponse->json('data.recipient_code');
+
+        // 2. Initiate Transfer
+        $transferResponse = Http::withToken(config('services.paystack.secret'))
+            ->post('https://api.paystack.co/transfer', [
+                'source' => 'balance',
+                'amount' => $dto->amount,
+                'recipient' => $recipientCode,
+                'reference' => $dto->reference,
+                'reason' => 'Payout '.$dto->reference,
+            ]);
+
+        if ($transferResponse->failed()) {
+            return new ProviderResponse(
+                status: AuthorizationStatus::Failed,
+                providerReference: $dto->reference,
+                rawResponse: $transferResponse->json() ?? [],
+                metadata: ['error' => 'Transfer failed: '.$transferResponse->reason()]
+            );
+        }
+
+        $data = $transferResponse->json('data');
+        $status = $data['status'] ?? 'pending';
+
+        $mappedStatus = match ($status) {
+            'success' => AuthorizationStatus::Success,
+            'failed' => AuthorizationStatus::Failed,
+            default => AuthorizationStatus::Pending,
+        };
+
+        return new ProviderResponse(
+            status: $mappedStatus,
+            providerReference: $data['reference'] ?? $dto->reference, // Paystack ref or our ref?
+            // Paystack returns a transfer_code and reference.
+            // Usually we store transfer_code as providerReference? Or reference?
+            // "reference" in response matches request reference if provided.
+            // "transfer_code" is unique Paystack ID (TRF_...).
+            // I'll use transfer_code if available, or reference.
+            // Actually, providerReference usually means the ID on THEIR system.
+            // data['transfer_code']
+            rawResponse: $data
+        );
+    }
 }
