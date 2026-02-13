@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Domains\Payouts\Actions;
 
 use App\Contracts\IdempotentAction;
-use App\Domains\Payouts\Contracts\LedgerInterface;
+use App\Domains\Payouts\Contracts\LedgerServiceInterface;
+use App\Domains\Payouts\NewPayoutEvent;
 use App\Enums\Currency;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
 use App\Models\Business;
 use App\Models\Payout;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -20,7 +22,7 @@ use Throwable;
 
 final readonly class CreatePayout implements IdempotentAction
 {
-    public function __construct(private LedgerInterface $ledger) {}
+    public function __construct(private LedgerServiceInterface $ledgerService) {}
 
     /**
      * @param array{
@@ -72,9 +74,11 @@ final readonly class CreatePayout implements IdempotentAction
                 'metadata' => $metadata,
             ]);
 
-            $this->ledger->recordPayoutTransaction($payout);
+            $this->ledgerService->recordPayoutTransaction($payout);
 
             $payout->update(['status' => PayoutStatus::Pending]);
+
+            event(new NewPayoutEvent($payout));
 
             return $payout;
         });

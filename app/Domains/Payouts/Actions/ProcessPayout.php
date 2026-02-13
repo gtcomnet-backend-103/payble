@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Payouts\Actions;
 
 use App\Domains\Payouts\Contracts\DisbursementProviderInterface;
-use App\Domains\Payouts\Contracts\LedgerInterface;
+use App\Domains\Payouts\Contracts\LedgerServiceInterface;
 use App\Enums\PayoutStatus;
 use App\Models\Payout;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +14,7 @@ final readonly class ProcessPayout
 {
     public function __construct(
         private DisbursementProviderInterface $disbursementProvider,
-        private LedgerInterface $ledger,
+        private LedgerServiceInterface        $ledger,
     ) {}
 
     public function execute(Payout $payout): Payout
