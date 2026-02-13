@@ -45,6 +45,7 @@ final class Payout extends Model
         'reference',
         'requires_otp',
         'metadata',
+        'provider_reference',
     ];
 
     public function casts(): array
@@ -72,5 +73,10 @@ final class Payout extends Model
     public function transaction(): MorphOne
     {
         return $this->morphOne(Transaction::class, 'source');
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class);
     }
 }

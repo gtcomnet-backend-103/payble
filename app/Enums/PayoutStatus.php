@@ -11,6 +11,7 @@ enum PayoutStatus: string
     case Completed = 'completed';
     case Failed = 'failed';
     case Reversed = 'reversed';
+    case Draft = 'draft';
 
     public function is(self|string $status): bool
     {

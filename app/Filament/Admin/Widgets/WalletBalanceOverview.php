@@ -23,8 +23,8 @@ final class WalletBalanceOverview extends StatsOverviewWidget
             Stat::make('Platform Revenue', Number::currency($ledgerService->getBalance($platformBalance) / 100, $platformBalance->currency)),
             Stat::make('Platform Clearing', Number::currency($ledgerService->getBalance($platformClearing) / 100, $platformClearing->currency)),
             ...Provider::all()->map(function (Provider $provider) use ($ledgerService) {
-                $providerClearing = $ledgerService->providerReceivable($provider, 'NGN', PaymentMode::Live);
-                $providerFeeExpenseBalance = $ledgerService->providerFee($provider, 'NGN', PaymentMode::Live);
+                $providerClearing = $ledgerService->providerReceivable($provider, 'NGN');
+                $providerFeeExpenseBalance = $ledgerService->providerFee($provider, 'NGN');
 
                 return [
                     Stat::make("$provider->name Fee Expense", Number::currency($ledgerService->getBalance($providerFeeExpenseBalance) / 100, $providerFeeExpenseBalance->currency)),

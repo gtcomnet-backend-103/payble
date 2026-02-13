@@ -10,6 +10,7 @@ use App\Domains\Payments\Providers\DataTransferObjects\PaymentAuthorizeDTO;
 use App\Domains\Payments\Providers\DataTransferObjects\PaymentValidateDTO;
 use App\Domains\Payments\Providers\DataTransferObjects\ProviderResponse;
 use App\Domains\Payments\Providers\DataTransferObjects\WebhookPayloadDTO;
+use App\Domains\Payouts\DataTransferObjects\PayoutTransferData;
 use App\Enums\AuthorizationStatus;
 use App\Enums\Currency;
 use App\Enums\PaymentChannel;
@@ -195,7 +196,7 @@ final class PaystackAdapter implements ProviderAdapter
         return 1000;
     }
 
-    public function initiateTransfer(\App\Domains\Payouts\DataTransferObjects\PayoutTransferData $dto): ProviderResponse
+    public function initiateTransfer(PayoutTransferData $dto): ProviderResponse
     {
         // 1. Create Transfer Recipient
         $recipientResponse = Http::withToken(config('services.paystack.secret'))

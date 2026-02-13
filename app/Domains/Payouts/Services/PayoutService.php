@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace App\Domains\Payouts\Services;
 
+use App\Domains\Payouts\Actions\AuthorizePayout;
 use App\Domains\Payouts\Actions\CreatePayout;
 use App\Domains\Payouts\Actions\ProcessPayout;
 use App\Models\Business;
 use App\Models\Payout;
 use App\Models\User;
 
-final class PayoutService
+final readonly class PayoutService
 {
     public function __construct(
-        private readonly CreatePayout $createPayout,
-        private readonly ProcessPayout $processPayout
+        private CreatePayout $createPayout,
+        private ProcessPayout $processPayout,
+        private AuthorizePayout $authorizePayout,
     ) {}
 
     public function create(Business $business, array $data): Payout
@@ -22,8 +24,13 @@ final class PayoutService
         return $this->createPayout->execute($business, $data);
     }
 
-    public function process(Payout $payout, ?string $otp = null, ?User $user = null): Payout
+    public function authorize(Payout $payout): Payout
     {
-        return $this->processPayout->execute($payout, $otp, $user);
+        return $this->authorizePayout->execute($payout);
+    }
+
+    public function process(Payout $payout): Payout
+    {
+        return $this->processPayout->execute($payout);
     }
 }

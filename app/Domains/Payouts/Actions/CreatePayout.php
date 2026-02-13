@@ -5,20 +5,23 @@ declare(strict_types=1);
 namespace App\Domains\Payouts\Actions;
 
 use App\Contracts\IdempotentAction;
+use App\Domains\Payouts\Contracts\LedgerInterface;
 use App\Enums\Currency;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
-use App\Enums\TransactionStatus;
 use App\Models\Business;
 use App\Models\Payout;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
-final class CreatePayout implements IdempotentAction
+final readonly class CreatePayout implements IdempotentAction
 {
+    public function __construct(private LedgerInterface $ledger) {}
+
     /**
      * @param array{
      *   amount: int,
@@ -39,50 +42,39 @@ final class CreatePayout implements IdempotentAction
         $data = Validator::make($data, [
             'amount' => ['required', 'integer', 'min:100'],
             'currency' => ['required', 'string', Rule::enum(Currency::class)],
-            'bank_code' => ['required', 'string'],
-            'account_number' => ['required', 'string'],
-            'account_name' => ['required', 'string'],
-            'reference' => ['nullable', 'string', 'max:100', Rule::unique('payouts', 'reference')->where('business_id', $business->getKey())],
+            'reference' => ['nullable', 'string', 'max:100', Rule::unique('transactions', 'reference')->where('business_id', $business->getKey())],
             'requires_otp' => ['sometimes', 'boolean'],
             'metadata' => ['nullable', 'array'],
-            'mode' => ['nullable', 'string', Rule::enum(PaymentMode::class)],
         ])->validate();
 
-        return DB::transaction(function () use ($business, $data) {
+        if ($bankAccount = $business->bankAccount()->first()) {
+            throw ValidationException::withMessages([
+                'reference' => 'No bank account specified for this business',
+            ]);
+        }
+
+        return DB::transaction(function () use ($bankAccount, $business, $data) {
             $currency = Currency::tryFrom($data['currency']);
-            $mode = isset($data['mode'])
-                ? PaymentMode::tryFrom($data['mode'])
-                : (PaymentMode::tryFrom(config('app.payment_mode') ?? 'test') ?? PaymentMode::Test);
-
-            $reference = $data['reference'] ?? 'PAY_'.Str::random(10);
+            $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? PaymentMode::Test->value);
+            $reference = $data['reference'] ?? Str::uuid()->toString();
             $requiresOtp = $data['requires_otp'] ?? false;
-
             $metadata = $data['metadata'] ?? [];
-            $metadata['bank_details'] = [
-                'bank_code' => $data['bank_code'],
-                'account_number' => $data['account_number'],
-                'account_name' => $data['account_name'],
-            ];
+            $metadata['account'] = $bankAccount->only(['account_name', 'account_number', 'bank_code']);
 
-            $payout = Payout::create([
+            $payout = $bankAccount->payouts()->create([
                 'business_id' => $business->id,
                 'amount' => $data['amount'],
                 'currency' => $currency,
                 'reference' => $reference,
-                'status' => PayoutStatus::Pending,
+                'status' => PayoutStatus::Draft,
                 'mode' => $mode,
                 'requires_otp' => $requiresOtp,
                 'metadata' => $metadata,
             ]);
 
-            $payout->transaction()->create([
-                'business_id' => $business->id,
-                'reference' => $payout->reference,
-                'currency' => $currency,
-                'status' => TransactionStatus::Pending,
-                'mode' => $mode,
-                'metadata' => $metadata,
-            ]);
+            $this->ledger->recordPayoutTransaction($payout);
+
+            $payout->update(['status' => PayoutStatus::Pending]);
 
             return $payout;
         });

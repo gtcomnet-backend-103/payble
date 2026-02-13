@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -56,6 +58,10 @@ final class Business extends Authenticatable
         'owner_id',
         'webhook_url',
         'verified_at',
+        'account_number',
+        'account_name',
+        'bank_code',
+        'currency',
     ];
 
     public function owner(): BelongsTo
@@ -68,9 +74,14 @@ final class Business extends Authenticatable
         return $this->belongsToMany(User::class);
     }
 
-    public function ledgerAccounts(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    public function ledgerAccounts(): MorphMany
     {
         return $this->morphMany(Account::class, 'holder');
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class);
     }
 
     /**
