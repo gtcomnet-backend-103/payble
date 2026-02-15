@@ -6,6 +6,5 @@ namespace App\Enums;
 
 enum FeeBearer: string
 {
-    case Merchant = 'merchant';
-    case Customer = 'customer';
+    case ACCOUNT = 'account';
 }

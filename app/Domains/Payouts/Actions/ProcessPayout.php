@@ -6,6 +6,7 @@ namespace App\Domains\Payouts\Actions;
 
 use App\Domains\Payouts\Contracts\DisbursementProviderInterface;
 use App\Domains\Payouts\Contracts\LedgerServiceInterface;
+use App\Enums\AuthorizationStatus;
 use App\Enums\PayoutStatus;
 use App\Models\Payout;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ final readonly class ProcessPayout
 {
     public function __construct(
         private DisbursementProviderInterface $disbursementProvider,
-        private LedgerServiceInterface        $ledger,
+        private LedgerServiceInterface $ledger,
     ) {}
 
     public function execute(Payout $payout): Payout
@@ -23,18 +24,21 @@ final readonly class ProcessPayout
             return $payout;
         }
 
-        // 1. Verify OTP
         $response = $this->disbursementProvider->verify($payout->provider, $payout->provider_reference);
 
-        if (in_array($response->status, ['success', 'failed'])) {
-            return DB::transaction(function () use ($payout, $response) {
-                $payout->update([
-                    'status' => $response->status,
-                ]);
+        if ($response->status->isFinal()) {
+            return DB::transaction(function () use ($payout, $response): Payout {
+                if ($response->status === AuthorizationStatus::Success) {
+                    $payout->update(['status' => PayoutStatus::Success]);
+                    $this->ledger->postTransaction($payout->transaction);
+                }
 
-                $this->ledger->postTransaction($payout->transaction);
+                if ($response->status === AuthorizationStatus::Failed) {
+                    $payout->update(['status' => PayoutStatus::Failed]);
+                    $this->ledger->reverse($payout->transaction);
+                }
 
-                return $payout;
+                return $payout->refresh();
             });
         }
 

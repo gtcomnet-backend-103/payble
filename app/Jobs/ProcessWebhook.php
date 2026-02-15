@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Domains\Payments\Actions\ProcessPaymentAttempt;
-use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\PaymentStatus;
 use App\Models\AuthorizationAttempt;
 use App\Models\PaymentIntent;
 use App\Models\Provider;
 use App\Models\WebhookEvent;
+use App\Supports\Providers\Facades\PaymentProvider;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;

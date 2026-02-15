@@ -24,7 +24,7 @@ final class StorePaymentRequest extends FormRequest
             'phone' => ['required_without:email', 'nullable', 'string'],
             'currency' => ['nullable', 'string', 'size:3'],
             'reference' => ['nullable', 'string', 'max:100'],
-            'bearer' => ['nullable', 'string', 'in:merchant,customer'],
+            'bearer' => ['nullable', 'string', 'in:account'],
             'metadata' => ['nullable', 'array'],
             'mode' => ['nullable', 'string', 'in:test,live'],
         ];

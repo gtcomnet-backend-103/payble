@@ -6,9 +6,9 @@ namespace App\Domains\Payments\Actions;
 
 use App\Contracts\IdempotentAction;
 use App\Domains\Payments\Events\WebhookReceived;
-use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Models\Provider;
 use App\Models\WebhookEvent;
+use App\Supports\Providers\Facades\PaymentProvider;
 
 final class CreateWebhookEvent implements IdempotentAction
 {

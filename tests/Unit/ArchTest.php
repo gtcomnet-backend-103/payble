@@ -85,6 +85,7 @@ test('db transactions only happen inside actions')
     ->expect('Illuminate\Support\Facades\DB')
     ->toOnlyBeUsedIn([
         'App\Domains\Payments\Actions',
+        'App\Domains\Payouts\Actions',
         'App\Domains\Ledger\Actions',
         'App\Domains\Ledger\Services\LedgerService',
         'App\Domains\Ledger\Services\LedgerTransactionManager',

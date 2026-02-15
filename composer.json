@@ -7,11 +7,12 @@
     "license": "MIT",
     "require": {
         "php": "^8.4.0",
+        "ext-bcmath": "*",
         "filament/filament": "^5.2.0",
         "laravel/framework": "^12.50.0",
         "laravel/sanctum": "^4.3",
         "nunomaduro/essentials": "^1.0.1",
-        "ext-bcmath": "*"
+        "spatie/laravel-one-time-passwords": ">=1.0.10"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": ">=3.6.1",

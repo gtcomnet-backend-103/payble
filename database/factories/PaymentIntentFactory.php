@@ -34,9 +34,9 @@ final class PaymentIntentFactory extends Factory
             'customer_id' => Customer::factory(),
             'amount' => $this->faker->numberBetween(1000, 1000000),
             'currency' => Currency::NGN,
-            'reference' => 'TRX_'.Str::random(10),
+            'reference' => 'TRX_' . Str::random(10),
             'status' => PaymentStatus::Initiated,
-            'bearer' => FeeBearer::Merchant,
+            'bearer' => FeeBearer::ACCOUNT,
             'mode' => PaymentMode::Test,
             'metadata' => [],
         ];
@@ -50,6 +50,8 @@ final class PaymentIntentFactory extends Factory
                     'business_id' => $paymentIntent->business_id,
                     'reference' => $paymentIntent->reference,
                     'currency' => $paymentIntent->currency,
+                    'amount' => $paymentIntent->amount,
+                    'fee' => 0, // Fee is applied later by ApprovePayment/ApplyPaymentFee
                     'status' => TransactionStatus::Pending,
                     'mode' => $paymentIntent->mode,
                     'metadata' => $paymentIntent->metadata ?? [],

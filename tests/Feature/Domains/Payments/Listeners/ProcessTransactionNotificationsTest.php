@@ -51,7 +51,7 @@ it('sends notifications and webhook on successful transaction', function () {
         'amount_paid' => 1000,
         'currency' => 'NGN',
         'status' => App\Enums\PaymentStatus::Success,
-        'bearer' => App\Enums\FeeBearer::Merchant,
+        'bearer' => App\Enums\FeeBearer::ACCOUNT,
         'mode' => App\Enums\PaymentMode::Live,
         'reference' => 'REF_SHARED_123',
     ]);
@@ -59,6 +59,7 @@ it('sends notifications and webhook on successful transaction', function () {
     $transaction = $intent->transaction()->create([
         'business_id' => $business->id,
         'currency' => 'NGN',
+        'amount' => 1000,
         'status' => App\Enums\TransactionStatus::Success,
         'mode' => App\Enums\PaymentMode::Live,
         'reference' => 'REF_SHARED_123',
@@ -67,7 +68,7 @@ it('sends notifications and webhook on successful transaction', function () {
     $event = new TransactionSuccessful(
         transaction: $transaction,
         provider: $provider,
-        bearer: App\Enums\FeeBearer::Merchant,
+        bearer: App\Enums\FeeBearer::ACCOUNT,
         totalFee: 0,
         providerFee: 0
     );
@@ -143,7 +144,7 @@ it('does not send webhook if business has no webhook url', function () {
         'amount_paid' => 1000,
         'currency' => 'NGN',
         'status' => App\Enums\PaymentStatus::Success,
-        'bearer' => App\Enums\FeeBearer::Merchant,
+        'bearer' => App\Enums\FeeBearer::ACCOUNT,
         'mode' => App\Enums\PaymentMode::Live,
         'reference' => 'REF_SHARED_NO_WEBHOOK',
     ]);
@@ -151,6 +152,7 @@ it('does not send webhook if business has no webhook url', function () {
     $transaction = $intent->transaction()->create([
         'business_id' => $business->id,
         'currency' => 'NGN',
+        'amount' => 1000,
         'status' => App\Enums\TransactionStatus::Success,
         'mode' => App\Enums\PaymentMode::Live,
         'reference' => 'REF_SHARED_NO_WEBHOOK',
@@ -159,7 +161,7 @@ it('does not send webhook if business has no webhook url', function () {
     $event = new TransactionSuccessful(
         transaction: $transaction,
         provider: $provider,
-        bearer: App\Enums\FeeBearer::Merchant,
+        bearer: App\Enums\FeeBearer::ACCOUNT,
         totalFee: 0,
         providerFee: 0
     );

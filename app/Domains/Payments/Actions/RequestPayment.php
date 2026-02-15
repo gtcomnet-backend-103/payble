@@ -46,7 +46,7 @@ final class RequestPayment implements IdempotentAction
             'last_name' => ['sometimes', 'nullable', 'string', 'max:50'],
             'currency' => ['nullable', 'string', Rule::enum(Currency::class)],
             'reference' => ['nullable', 'string', 'max:100', Rule::unique('transactions', 'reference')->where('business_id', $business->getKey())],
-            'bearer' => ['nullable', 'string', Rule::enum(FeeBearer::class)],
+            'bearer' => ['nullable', 'string', 'in:account'],
             'metadata' => ['nullable', 'array'],
         ])->validate();
 
@@ -55,8 +55,8 @@ final class RequestPayment implements IdempotentAction
 
             $currency = Currency::tryFrom($data['currency'] ?? 'NGN') ?? Currency::NGN;
             $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? ($data['mode'] ?? 'test')) ?? PaymentMode::Test;
-            $bearer = FeeBearer::tryFrom($data['bearer'] ?? 'merchant') ?? FeeBearer::Merchant;
-            $reference = $data['reference'] ?? 'TRX_'.Str::random(10);
+            $bearer = FeeBearer::tryFrom($data['bearer'] ?? 'account') ?? FeeBearer::ACCOUNT;
+            $reference = $data['reference'] ?? 'TRX_' . Str::random(10);
 
             $paymentIntent = PaymentIntent::create([
                 'business_id' => $business->id,
@@ -74,6 +74,8 @@ final class RequestPayment implements IdempotentAction
                 'business_id' => $business->id,
                 'reference' => $paymentIntent->reference,
                 'currency' => $currency,
+                'amount' => $paymentIntent->amount,
+                'fee' => 0,
                 'status' => TransactionStatus::Pending,
                 'mode' => $mode,
                 'metadata' => $data['metadata'] ?? [],

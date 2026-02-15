@@ -9,6 +9,8 @@ use Laravel\Sanctum\Sanctum;
 
 use function Pest\Laravel\assertDatabaseHas;
 
+uses(Illuminate\Foundation\Testing\RefreshDatabase::class);
+
 beforeEach(function () {
     $this->user = User::factory()->create();
     $this->business = Business::create([
@@ -45,7 +47,7 @@ it('creates a payment request with email', function () {
                 'mode',
                 'metadata',
                 'channel',
-                'fees',
+                'fee',
                 'customer' => ['first_name', 'last_name', 'email', 'phone'],
             ],
         ])
@@ -135,17 +137,17 @@ it('creates a payment request with currency', function () {
         ->assertJsonPath('data.currency', 'USD');
 });
 
-it('creates a payment request with bearer', function (FeeBearer $bearer) {
+it('creates a payment request with bearer', function () {
     $this->postJson('/api/payments', [
         'amount' => 100000,
         'email' => 'test@email.com',
-        'bearer' => $bearer->value,
+        'bearer' => FeeBearer::ACCOUNT->value,
     ]);
 
     assertDatabaseHas('payment_intents', [
-        'bearer' => $bearer->value,
+        'bearer' => FeeBearer::ACCOUNT->value,
     ]);
-})->with(FeeBearer::cases());
+});
 
 it('creates a payment request with metadata', function () {
     $response = $this->postJson('/api/payments', [

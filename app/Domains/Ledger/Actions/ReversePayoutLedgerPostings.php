@@ -7,6 +7,7 @@ namespace App\Domains\Ledger\Actions;
 use App\Domains\Ledger\DataTransferObjects\LedgerEntry as LedgerEntryDTO;
 use App\Domains\Ledger\Facades\Ledger;
 use App\Domains\Ledger\Services\LedgerService;
+use App\Enums\AccountType;
 use App\Models\Payout;
 use App\Models\Transaction;
 use RuntimeException;
@@ -38,14 +39,14 @@ final class ReversePayoutLedgerPostings
 
         // Retrieve accounts
         $businessWallet = $this->ledgerService->businessReceivable($transaction->business, $currency, $mode);
-        $providerClearing = $this->ledgerService->providerReceivable($payout->provider, $currency, $mode);
+        $businessReserved = $this->ledgerService->getAccount($transaction->business, AccountType::BUSINESS_HOLDS, $currency, $mode);
 
         $entries = [
-            // Credit Business Wallet (Increase Balance - Refund)
-            LedgerEntryDTO::credit($businessWallet, $amount),
+            // Debit Business Wallet (Increase Balance - Refund to available)
+            LedgerEntryDTO::debit($businessWallet, $amount),
 
-            // Debit Provider Clearing (Increase Asset - Money didn't leave)
-            LedgerEntryDTO::debit($providerClearing, $amount),
+            // Credit Business Reserved (Decrease reserved balance)
+            LedgerEntryDTO::credit($businessReserved, $amount),
         ];
 
         Ledger::transaction($transaction)->entries($entries);

@@ -15,10 +15,12 @@ final class LedgerBatch extends Model
     protected $fillable = [
         'transaction_id',
         'posted_at',
+        'metadata',
     ];
 
     protected $casts = [
         'posted_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
     public function transaction(): BelongsTo

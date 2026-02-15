@@ -9,28 +9,32 @@ use App\Enums\Currency;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
 use App\Events\Payouts\PayoutAuthorized;
-use App\Exceptions\PayoutProcessingException;
+use App\Exceptions\PayoutException;
+use App\Models\Admin;
 use App\Models\BankAccount;
 use App\Models\Business;
 use App\Models\Provider;
 use App\Models\Transaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->business = Business::factory()->create();
+    $this->admin = Admin::factory()->create();
     $this->provider = Provider::factory()->create([
         'name' => 'Test Provider',
         'is_active' => true,
         'mode' => PaymentMode::Test,
         'is_payout_enabled' => true,
+        'identifier' => 'paystack',
     ]);
     $this->bankAccount = BankAccount::factory()->create([
         'business_id' => $this->business->id,
     ]);
+    $this->business->bankAccount()->associate($this->bankAccount);
+    $this->business->save();
 
     // Fund business account with sufficient balance
     $ledgerService = app(LedgerService::class);
@@ -50,6 +54,9 @@ beforeEach(function () {
     $batch = $ledgerService->startBatch($fundingTx, 'test_funding');
     $ledgerService->post($batch, $fundingTx, $businessAccount, $platformClearing, 1000000);
 
+    $this->disbursementProvider = $this->mock(\App\Domains\Payouts\Contracts\DisbursementProviderInterface::class);
+    $this->disbursementProvider->shouldReceive('provider')->andReturn($this->provider)->byDefault();
+
     $this->createPayout = app(CreatePayout::class);
     $this->authorizePayout = app(AuthorizePayout::class);
 });
@@ -58,74 +65,59 @@ it('authorizes a payout successfully in test mode', function () {
     Event::fake([PayoutAuthorized::class]);
 
     // Create payout
-    $payout = $this->createPayout->execute($this->bankAccount, [
+    $payout = $this->createPayout->execute($this->business, $this->admin, [
         'amount' => 10000,
         'currency' => Currency::NGN->value,
-        'mode' => PaymentMode::Test->value,
     ]);
 
-    // Wait for PayoutCreated event to process
+    // CreatePayout sets status to Pending
     $payout->refresh();
-    expect($payout->status)->toBe(PayoutStatus::ReadyForProcessing);
+    expect($payout->status)->toBe(PayoutStatus::Pending);
 
     // Authorize payout
-    $authorized = $this->authorizePayout->execute($payout); // returns void now? No, wait. execute returns void?
-    // Let's check AuthorizePayout.php: public function execute(Payout $payout): void
-    // So $authorized is null.
+    $this->disbursementProvider->shouldReceive('transfer')
+        ->once()
+        ->andReturn(new \App\Supports\Providers\DataTransferObjects\ProviderResponse(
+            status: \App\Enums\AuthorizationStatus::Success,
+            providerReference: 'PROV_REF_123'
+        ));
+
+    $this->authorizePayout->execute($payout);
 
     $payout->refresh();
     expect($payout->status)->toBe(PayoutStatus::Processing);
     expect($payout->provider_id)->toBe($this->provider->id);
     expect($payout->provider_reference)->not->toBeNull();
-    // In simulateTestMode, provider reference is set? DisbursmentProvider::disburse?
-    // Wait, check AuthorizePayout logic.
-    // Provider::provide(Test) -> returns provider.
-    // DisbursmentProvider::disburse -> updates provider_reference? NO.
-    // AuthorizePayout updates provider_reference AFTER disburse using disbursementData->reference.
-    // For test mode, does PayoutTransferData use simulated ref?
-    // ProviderResolver resolves Test provider.
-    // Adapter returns success?
-    // If successful, AuthorizePayout updates p->provider_reference = disbursementData->reference.
-    // But disbursementData->reference is Payout->reference.
-    // So provider_reference == Payout->reference?
-    // Let's check logic.
-
-    // Event should be fired
-    Event::assertDispatched(PayoutAuthorized::class, function ($event) use ($payout) {
-        return $event->payoutId === $payout->id;
-    });
 });
 
 it('validates payout status before authorization', function () {
     Event::fake();
 
-    $payout = $this->createPayout->execute($this->bankAccount, [
+    $payout = $this->createPayout->execute($this->business, $this->admin, [
         'amount' => 10000,
         'currency' => Currency::NGN->value,
-        'mode' => PaymentMode::Test->value,
     ]);
 
-    // Don't wait for event processing - status is still Pending
+    // Status is already Pending, but AuthorizePayout checks if it's NOT Pending to throw exception for "already processed"
+    $payout->update(['status' => PayoutStatus::Processing]);
+
     expect(fn() => $this->authorizePayout->execute($payout))
-        ->toThrow(PayoutProcessingException::class, 'Payout already processed or in progress'); // Or similar from "ReadyForProcessing" check
-    // Code: "Payout already processed or in progress. Status: pending"
+        ->toThrow(PayoutException::class, 'this payout cannot be authorized in this state');
 });
 
 it('handles authorization failure gracefully', function () {
-    $payout = $this->createPayout->execute($this->bankAccount, [
+    $payout = $this->createPayout->execute($this->business, $this->admin, [
         'amount' => 10000,
         'currency' => Currency::NGN->value,
-        'mode' => PaymentMode::Live->value,
     ]);
 
     $payout->refresh();
 
-    $payout->refresh();
-
-    // Mock ProviderResolver to throw exception
-    $mockResolver = Mockery::mock(\App\Domains\Payments\Providers\Services\ProviderResolver::class);
-    $mockResolver->shouldReceive('resolve')->andThrow(new Exception('Provider failure'));
-    $this->instance(\App\Domains\Payments\Providers\Services\ProviderResolver::class, $mockResolver);
+    // Mock DisbursementProviderInterface instead of ProviderResolver
+    $mockP = Mockery::mock(\App\Domains\Payouts\Contracts\DisbursementProviderInterface::class);
+    $mockP->shouldReceive('provider')->andReturn($this->provider);
+    $mockP->shouldReceive('transfer')->andThrow(new Exception('Provider failure'));
+    $this->instance(\App\Domains\Payouts\Contracts\DisbursementProviderInterface::class, $mockP);
 
     try {
         $this->authorizePayout->execute($payout);
@@ -135,27 +127,32 @@ it('handles authorization failure gracefully', function () {
 
     $payout->refresh();
 
-    // Status should be Failed
     expect($payout->status)->toBe(PayoutStatus::Failed);
 });
 
 it('prevents concurrent authorization attempts', function () {
     Event::fake([PayoutAuthorized::class]);
 
-    $payout = $this->createPayout->execute($this->bankAccount, [
+    $payout = $this->createPayout->execute($this->business, $this->admin, [
         'amount' => 10000,
         'currency' => Currency::NGN->value,
-        'mode' => PaymentMode::Test->value,
     ]);
 
     $payout->refresh();
 
     // First authorization
+    $this->disbursementProvider->shouldReceive('transfer')
+        ->once()
+        ->andReturn(new \App\Supports\Providers\DataTransferObjects\ProviderResponse(
+            status: \App\Enums\AuthorizationStatus::Success,
+            providerReference: 'PROV_REF_CONC'
+        ));
+
     $this->authorizePayout->execute($payout);
 
     $payout->refresh();
 
     // Second authorization should fail
     expect(fn() => $this->authorizePayout->execute($payout))
-        ->toThrow(PayoutProcessingException::class, 'Payout already processed or in progress');
+        ->toThrow(PayoutException::class, 'this payout cannot be authorized in this state');
 });

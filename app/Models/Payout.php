@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Contracts\Recordable;
+use App\Domains\Ledger\DataTransferObjects\TransactionData;
 use App\Enums\Currency;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
@@ -11,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * @property int $id
@@ -23,6 +26,8 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
  * @property string $reference
  * @property bool $requires_otp
  * @property array<array-key, mixed>|null $metadata
+ * @property int $fee
+ * @property-read int $net_amount
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
  * @property-read Business $business
@@ -31,7 +36,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
  *
  * @mixin \Eloquent
  */
-final class Payout extends Model
+final class Payout extends Model implements Recordable
 {
     use HasFactory;
 
@@ -39,6 +44,8 @@ final class Payout extends Model
         'business_id',
         'provider_id',
         'amount',
+        'fee',
+        'currency',
         'currency',
         'mode',
         'status',
@@ -52,6 +59,7 @@ final class Payout extends Model
     {
         return [
             'amount' => 'integer',
+            'fee' => 'integer',
             'currency' => Currency::class,
             'mode' => PaymentMode::class,
             'status' => PayoutStatus::class,
@@ -78,5 +86,30 @@ final class Payout extends Model
     public function bankAccount(): BelongsTo
     {
         return $this->belongsTo(BankAccount::class);
+    }
+
+    public function originator(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function toTransactionData(): TransactionData
+    {
+        return new TransactionData(
+            businessId: $this->business_id,
+            reference: $this->reference,
+            amount: $this->amount,
+            fee: $this->fee,
+            currency: $this->currency,
+            mode: $this->mode,
+            metadata: $this->metadata,
+        );
+    }
+
+    protected function netAmount(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::get(
+            fn() => max(0, $this->amount - $this->fee)
+        );
     }
 }

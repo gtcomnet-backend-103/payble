@@ -24,7 +24,7 @@ final class RecordPaymentLedgerPostings
         int $providerFee
     ): void {
         $currency = $transaction->currency->value;
-        $gross = $transaction->source->amount_paid;
+        $gross = $transaction->amount + $transaction->fee;
 
         // Retrieve accounts
         $providerReceivable = $this->ledgerService->providerReceivable($provider, $currency, $transaction->mode);

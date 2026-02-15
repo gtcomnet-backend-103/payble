@@ -25,7 +25,7 @@ use RuntimeException;
  * @property string $reference
  * @property PaymentMode $mode
  * @property PaymentChannel|null $channel
- * @property int $fees
+ * @property int $fee
  * @property array<array-key, mixed>|null $metadata
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
@@ -43,7 +43,7 @@ use RuntimeException;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereChannel($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereCurrency($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereFees($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereFee($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereMetadata($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereMode($value)
@@ -60,6 +60,8 @@ final class Transaction extends Model
     protected $fillable = [
         'business_id',
         'currency',
+        'amount',
+        'fee',
         'status',
         'reference',
         'mode',
@@ -85,6 +87,8 @@ final class Transaction extends Model
     {
         return [
             'currency' => Currency::class,
+            'amount' => 'integer',
+            'fee' => 'integer',
             'status' => TransactionStatus::class,
             'mode' => PaymentMode::class,
             'channel' => PaymentChannel::class,
@@ -111,20 +115,11 @@ final class Transaction extends Model
         return $this->belongsTo(PaymentIntent::class, 'source_id');
     }
 
-    protected function amount(): Attribute
-    {
-        return Attribute::get(fn () => $this->source?->amount);
-    }
-
     protected function grossAmount(): Attribute
     {
-        return Attribute::get(fn () => $this->amount);
+        return Attribute::get(fn() => $this->amount + $this->fee);
     }
 
-    protected function fees(): Attribute
-    {
-        return Attribute::get(fn () => ($this->paymentIntent?->amount_paid ?? 0) - ($this->paymentIntent?->amount ?? 0));
-    }
 
     protected function channel(): Attribute
     {

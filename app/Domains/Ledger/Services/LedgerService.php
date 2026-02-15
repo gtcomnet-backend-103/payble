@@ -164,4 +164,33 @@ final class LedgerService
             ]
         );
     }
+
+    /**
+     * Issue an internal credit to an account (e.g. for testing or manual adjustments).
+     * This creates a ledger entry and updates the snapshot.
+     */
+    public function issueInternalCredit(Account $account, int $amount): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+
+        DB::transaction(function () use ($account, $amount) {
+            $batch = LedgerBatch::create([
+                'transaction_id' => null, // Internal adjustment
+                'metadata' => ['reason' => 'Internal Credit'],
+            ]);
+
+            $entry = LedgerEntry::create([
+                'ledger_batch_id' => $batch->id,
+                'ledger_account_id' => $account->id,
+                'transaction_id' => null,
+                'reference' => 'INT-' . strtoupper(bin2hex(random_bytes(4))),
+                'amount' => $amount,
+                'direction' => EntryDirection::CREDIT,
+            ]);
+
+            $this->incrementSnapshot($account, $amount, $entry->id);
+        });
+    }
 }

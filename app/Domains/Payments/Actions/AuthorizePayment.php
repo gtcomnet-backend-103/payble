@@ -5,31 +5,30 @@ declare(strict_types=1);
 namespace App\Domains\Payments\Actions;
 
 use App\Contracts\IdempotentAction;
-use App\Domains\Payments\Providers\DataTransferObjects\CustomerDTO;
-use App\Domains\Payments\Providers\DataTransferObjects\PaymentAuthorizeDTO;
-use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
-use App\Enums\FeeBearer;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Models\AuthorizationAttempt;
 use App\Models\PaymentIntent;
+use App\Supports\Providers\DataTransferObjects\CustomerDTO;
+use App\Supports\Providers\DataTransferObjects\PaymentAuthorizeDTO;
+use App\Supports\Providers\Facades\PaymentProvider;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 final class AuthorizePayment implements IdempotentAction
 {
     public function __construct(
-        private SelectProvider $selectProvider,
-        private ResolvePaymentFee $resolvePaymentFee,
-        private ProcessPaymentAttempt $processPaymentAttempt,
+        private readonly ResolvePaymentFee $resolvePaymentFee,
+        private readonly ProcessPaymentAttempt $processPaymentAttempt,
     ) {}
 
     /**
      * Authorize a payment intent.
      *
-     * @throws Exception
+     * @throws Throwable
      */
     public function execute(string $reference, PaymentChannel $channel, array $data = []): AuthorizationAttempt
     {
@@ -56,7 +55,7 @@ final class AuthorizePayment implements IdempotentAction
             }
 
             // 4. Select provider and resolve fee
-            $provider = $this->selectProvider->execute($channel);
+            $provider = PaymentProvider::provide($channel->value);
 
             // 5. Create AuthorizationAttempt record
             $attempt = $this->createAttempt($payment, $channel);
@@ -116,13 +115,10 @@ final class AuthorizePayment implements IdempotentAction
      */
     public function createAttempt(PaymentIntent $payment, PaymentChannel $channel): AuthorizationAttempt
     {
-        $provider = $this->selectProvider->execute($channel);
+        $provider = PaymentProvider::provide($channel->value);
         $feeAmount = $this->resolvePaymentFee->execute($payment, $channel);
 
-        $amount = match ($payment->bearer) {
-            FeeBearer::Customer => bcadd((string) $payment->amount, (string) $feeAmount),
-            FeeBearer::Merchant => $payment->amount,
-        };
+        $amount = $payment->amount;
 
         $providerFee = PaymentProvider::getFee(
             $provider,

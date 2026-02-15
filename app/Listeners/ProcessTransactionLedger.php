@@ -30,9 +30,6 @@ final class ProcessTransactionLedger implements ShouldQueue
 
     private function calculateFee(FeeBearer $bearer, int $totalFee): array
     {
-        return match ($bearer) {
-            FeeBearer::Merchant => [$totalFee, 0],
-            FeeBearer::Customer => [0, $totalFee],
-        };
+        return [$totalFee, 0];
     }
 }

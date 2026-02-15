@@ -27,7 +27,7 @@ final class TransactionResource extends JsonResource
             'mode' => $this->mode->value,
             'metadata' => $this->metadata,
             'channel' => $this->channel?->value,
-            'fees' => $this->fees,
+            'fee' => $this->fee,
             'customer' => [
                 'first_name' => $this->paymentIntent->customer->first_name,
                 'last_name' => $this->paymentIntent->customer->last_name,

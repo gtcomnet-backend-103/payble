@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Models\Provider;
+use App\Supports\Providers\Facades\PaymentProvider;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;

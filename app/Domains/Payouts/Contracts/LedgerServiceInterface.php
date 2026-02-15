@@ -12,4 +12,6 @@ interface LedgerServiceInterface
     public function recordPayoutTransaction(Payout $payout): Transaction;
 
     public function postTransaction(Transaction $transaction): void;
+    public function reserve(Transaction $transaction): void;
+    public function reverse(Transaction $transaction): void;
 }

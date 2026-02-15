@@ -7,6 +7,7 @@ namespace App\Domains\Ledger\Actions;
 use App\Domains\Ledger\DataTransferObjects\LedgerEntry as LedgerEntryDTO;
 use App\Domains\Ledger\Facades\Ledger;
 use App\Domains\Ledger\Services\LedgerService;
+use App\Enums\AccountType;
 use App\Models\Payout;
 use App\Models\Transaction;
 use RuntimeException;
@@ -35,15 +36,15 @@ final class RecordPayoutLedgerPostings
         $mode = $transaction->mode;
 
         // Retrieve accounts
-        $businessWallet = $this->ledgerService->businessReceivable($transaction->business, $currency, $mode);
+        $businessReserved = $this->ledgerService->getAccount($transaction->business, AccountType::BUSINESS_HOLDS, $currency, $mode);
         $providerClearing = $this->ledgerService->providerReceivable($payout->provider, $currency, $mode);
 
         $entries = [
-            // Debit Business Wallet (Decrease Balance)
-            LedgerEntryDTO::debit($businessWallet, $amount),
+            // Credit Business Reserved (Decrease reserved balance)
+            LedgerEntryDTO::credit($businessReserved, $amount),
 
-            // Credit Provider Clearing (Money leaving system via provider)
-            LedgerEntryDTO::credit($providerClearing, $amount),
+            // Debit Provider Clearing (Increase provider clearing/receivable)
+            LedgerEntryDTO::debit($providerClearing, $amount),
         ];
 
         Ledger::transaction($transaction)->entries($entries);

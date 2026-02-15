@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Events\Payouts\PayoutCreated;
-use App\Events\Payouts\PayoutFailed;
-use App\Events\Payouts\PayoutSucceeded;
+use App\Domains\Payments\Events\TransactionSuccessful;
+use App\Domains\Payouts\NewPayoutEvent;
+use App\Listeners\ProcessTransactionLedger;
+use App\Listeners\SendOneTimePasswordListener;
+use App\Listeners\SendPaymentNotifications;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Event;
 
 final class EventServiceProvider extends ServiceProvider
 {
@@ -17,18 +20,9 @@ final class EventServiceProvider extends ServiceProvider
      * @var array<class-string, array<int, class-string>>
      */
     protected $listen = [
-        // Payout creation triggers fund reservation and OTP
-        PayoutCreated::class => [
-            \App\Listeners\Payouts\ReservePayoutFunds::class,
-        ],
 
-        // Payout Success/Failure handled via ledger finalization/reversal
-        PayoutSucceeded::class => [
-            \App\Listeners\Payouts\PostPayoutFunds::class,
-        ],
-
-        PayoutFailed::class => [
-            \App\Listeners\Payouts\ReversePayoutFunds::class,
+        NewPayoutEvent::class => [
+            SendOneTimePasswordListener::class,
         ],
     ];
 
@@ -37,7 +31,15 @@ final class EventServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Event::listen(
+            TransactionSuccessful::class,
+            [ProcessTransactionLedger::class, 'handle']
+        );
+
+        Event::listen(
+            TransactionSuccessful::class,
+            [SendPaymentNotifications::class, 'handle']
+        );
     }
 
     /**

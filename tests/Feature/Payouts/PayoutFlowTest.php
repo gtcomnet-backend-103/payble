@@ -1,153 +1,147 @@
 <?php
 
-declare(strict_types=1);
-
-namespace Tests\Feature\Payouts;
-
 use App\Domains\Ledger\Services\LedgerService;
 use App\Domains\Payouts\Actions\AuthorizePayout;
 use App\Domains\Payouts\Actions\CreatePayout;
 use App\Domains\Payouts\Actions\ProcessPayout;
-use App\Domains\Payouts\Actions\VerifyPayoutOtp;
-use App\Enums\AccountType;
+use App\Domains\Payouts\Contracts\DisbursementProviderInterface;
 use App\Enums\AuthorizationStatus;
+use App\Enums\Currency;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
-use App\Models\AuthorizationAttempt;
+use App\Models\Admin;
 use App\Models\BankAccount;
 use App\Models\Business;
 use App\Models\FeeConfig;
 use App\Models\Provider;
-use App\Models\Transaction;
-use App\Models\User;
+use App\Supports\Providers\DataTransferObjects\ProviderResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
-use Tests\TestCase;
+use Illuminate\Support\Facades\Context;
+use function Pest\Laravel\mock;
 
-class PayoutFlowTest extends TestCase
-{
-    use RefreshDatabase;
+uses(RefreshDatabase::class);
 
-    private Business $business;
-    private BankAccount $bankAccount;
-    private Provider $provider;
+beforeEach(function () {
+    $this->business = Business::factory()->create();
+    $this->admin = Admin::factory()->create();
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+    // Create and associate bank account correctly for BelongsTo
+    $bankAccount = BankAccount::create([
+        'business_id' => $this->business->id,
+        'bank_code' => '058',
+        'account_number' => '0123456789',
+        'account_name' => 'Test Account',
+        'currency' => Currency::NGN->value,
+    ]);
+    $this->business->bankAccount()->associate($bankAccount);
+    $this->business->save();
+    $this->bankAccount = $bankAccount;
 
-        $user = User::factory()->create();
-        $this->business = Business::factory()->create(['owner_id' => $user->id]);
-        $this->bankAccount = BankAccount::factory()->create([
-            'business_id' => $this->business->id,
-            'bank_code' => '058',
-            'account_number' => '0123456789',
-        ]);
+    FeeConfig::factory()->create([
+        'business_id' => null,
+        'channel' => PaymentChannel::BankTransfer->value,
+        'currency' => Currency::NGN->value,
+        'percentage' => 1.0, // 1%
+        'fixed_amount' => 5000, // 50.00
+        'min_fee' => 10000, // 100.00
+        'max_fee' => 500000, // 5000.00
+        'is_active' => true,
+    ]);
 
-        $this->provider = Provider::factory()->create([
-            'identifier' => 'paystack',
-            'is_active' => true,
-            'is_healthy' => true,
-            'is_payout_enabled' => true,
-            'mode' => PaymentMode::Test,
-            'supported_channels' => [PaymentChannel::BankTransfer->value],
-        ]);
+    Context::add('business_id', $this->business->id);
 
-        // Setup Payout Fee config
-        FeeConfig::factory()->create([
-            'business_id' => null,
-            'channel' => PaymentChannel::BankTransfer,
-            'percentage' => 0,
-            'fixed_amount' => 5000, // 50.00
-            'is_active' => true,
-        ]);
+    // Ensure we have a provider
+    Provider::factory()->create([
+        'identifier' => 'paystack',
+        'is_payout_enabled' => true,
+        'is_active' => true,
+        'mode' => PaymentMode::Test,
+    ]);
 
-        // Fund business account
-        $ledgerService = app(LedgerService::class);
-        $businessAccount = $ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test);
-        $fundingTx = Transaction::factory()->create([
-            'business_id' => $this->business->id,
-            'amount' => 1000000, // 10,000 NGN
-            'reference' => 'FUND_TEST',
-            'source_type' => 'funding',
-            'source_id' => $this->business->id,
-        ]);
-        $platformClearing = $ledgerService->platformReceivable('NGN', PaymentMode::Test);
-        $batch = $ledgerService->startBatch($fundingTx, 'test_funding');
-        $ledgerService->post($batch, $fundingTx, $businessAccount, $platformClearing, 1000000);
-    }
+    $this->ledgerService = app(LedgerService::class);
+});
 
-    public function test_successful_payout_lifecycle_with_otp(): void
-    {
-        // 1. Create Payout
-        $createAction = app(CreatePayout::class);
-        $payout = $createAction->execute($this->bankAccount, [
-            'amount' => 100000, // 1000.00
-            'mode' => 'test',
-            'requires_otp' => true,
-        ]);
+it('completes the full payout lifecycle', function () {
+    // 1. Setup: Seed Business Wallet with 1,000,000 units (10,000.00)
+    $initialAmount = 1000000;
+    $this->ledgerService->issueInternalCredit($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test), $initialAmount);
 
-        // Reload to get updated status from listener
-        $payout->refresh();
-        expect($payout->status)->toBe(PayoutStatus::Pending);
+    // 2. Create Payout (Draft -> Pending)
+    /** @var CreatePayout $createAction */
+    $createAction = app(CreatePayout::class);
+    $payoutAmount = 100000; // 1,000.00
 
-        // OTP should be in cache
-        $otp = Cache::get("payout:otp:{$payout->id}");
-        expect($otp)->not->toBeNull();
+    $payout = $createAction->execute($this->business, $this->admin, [
+        'amount' => $payoutAmount,
+        'currency' => Currency::NGN->value,
+        'reference' => 'PAY-' . Str::random(10),
+    ]);
 
-        // 2. Verify OTP
-        $verifyOtpAction = app(VerifyPayoutOtp::class);
-        $verifyOtpAction->execute($payout, (string) $otp);
-        expect(Cache::get("payout:otp_verified:{$payout->id}"))->toBeTrue();
+    expect($payout->status)->toBe(PayoutStatus::Pending)
+        ->and($payout->amount)->toBe($payoutAmount)
+        ->and($payout->fee)->toBe(10000); // 1% of 100000 is 1000, but min_fee is 10000
 
-        // 3. Authorize Payout
-        Http::fake([
-            'api.paystack.co/transferrecipient' => Http::response([
-                'status' => true,
-                'data' => [
-                    'recipient_code' => 'RCP_123',
-                ],
-            ]),
-            'api.paystack.co/transfer' => Http::response([
-                'status' => true,
-                'data' => [
-                    'status' => 'success',
-                    'transfer_code' => 'TRF_123',
-                    'reference' => 'REF_123',
-                ],
-            ]),
-        ]);
+    // Verify funds reserved (Available: 1,000,000 - 100,000 = 900,000)
+    expect($this->ledgerService->getBalance($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)))->toBe(900000);
 
-        $authorizeAction = app(AuthorizePayout::class);
-        $authorizeAction->execute($payout);
+    // 3. Authorize Payout (Pending -> Processing)
+    // Mock provider transfer
+    mock(DisbursementProviderInterface::class)
+        ->shouldReceive('provider')->andReturn(Provider::first())
+        ->shouldReceive('transfer')->once()->andReturn(new ProviderResponse(AuthorizationStatus::Pending, 'PRV-123'));
 
-        $payout->refresh();
-        expect($payout->status)->toBe(PayoutStatus::Processing);
-        $this->assertDatabaseHas('authorization_attempts', [
-            'source_id' => $payout->id,
-            'source_type' => $payout->getMorphClass(),
-            'status' => AuthorizationStatus::Success,
-        ]);
+    /** @var AuthorizePayout $authAction */
+    $authAction = app(AuthorizePayout::class);
+    $payout = $authAction->execute($payout);
 
-        // 4. Final Processing (Simulate success)
-        $processAction = app(ProcessPayout::class);
-        $processAction->markSuccess($payout);
-        $payout->refresh();
+    expect($payout->status)->toBe(PayoutStatus::Processing);
 
-        expect($payout->status)->toBe(PayoutStatus::Succeeded);
+    // 4. Process Payout (Processing -> Success)
+    $payout->refresh(); // Load provider relationship for verify()
+    // Mock provider verification
+    mock(DisbursementProviderInterface::class)
+        ->shouldReceive('verify')->once()->andReturn(new ProviderResponse(AuthorizationStatus::Success, 'PRV-123'));
 
-        // Check Ledger Balances
-        $ledgerService = app(LedgerService::class);
-        $wallet = $ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test);
-        $balance = $ledgerService->getBalance($wallet);
+    /** @var ProcessPayout $processAction */
+    $processAction = app(ProcessPayout::class);
+    $payout = $processAction->execute($payout);
 
-        // Initial 1M - 100K (payout) - 5K (fee) = 895K
-        // Wait, fee is deducted from the payout amount or added?
-        // In this project, it seems it depends on the bearer, but usually it's deducted or business pays.
-        // Let's check ResolvePayoutFee.
+    expect($payout->status)->toBe(PayoutStatus::Success);
 
-        expect($balance)->toBe(895000);
-    }
-}
+    // Verify ledger finalized (Holds should be empty for this specific transaction)
+    // Actually, balance checks are easier on available wallet
+    expect($this->ledgerService->getBalance($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)))->toBe(900000);
+});
+
+it('reverses funds on payout failure', function () {
+    // 1. Setup Balance
+    $initialAmount = 1000000;
+    $this->ledgerService->issueInternalCredit($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test), $initialAmount);
+
+    $payoutAmount = 100000;
+    /** @var CreatePayout $createAction */
+    $createAction = app(CreatePayout::class);
+    $payout = $createAction->execute($this->business, $this->admin, [
+        'amount' => $payoutAmount,
+        'currency' => Currency::NGN->value,
+    ]);
+
+    expect($this->ledgerService->getBalance($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)))->toBe(900000);
+
+    // Transition to Processing
+    $payout->update(['status' => PayoutStatus::Processing, 'provider_id' => Provider::first()->id]);
+
+    // 2. Fail the payout
+    mock(DisbursementProviderInterface::class)
+        ->shouldReceive('verify')->andReturn(new ProviderResponse(AuthorizationStatus::Failed, 'PRV-FAIL'));
+
+    /** @var ProcessPayout $processAction */
+    $processAction = app(ProcessPayout::class);
+    $payout = $processAction->execute($payout);
+
+    expect($payout->status)->toBe(PayoutStatus::Failed);
+
+    // Verify funds reversed (900,000 + 100,000 = 1,000,000)
+    expect($this->ledgerService->getBalance($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)))->toBe(1000000);
+});

@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Domains\Payments\Actions;
 
 use App\Contracts\IdempotentAction;
-use App\Domains\Payments\Providers\DataTransferObjects\PaymentValidateDTO;
-use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
 use App\Models\AuthorizationAttempt;
 use App\Models\PaymentIntent;
+use App\Supports\Providers\DataTransferObjects\PaymentValidateDTO;
+use App\Supports\Providers\Facades\PaymentProvider;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;

@@ -44,7 +44,7 @@ return [
     */
 
     'adapters' => [
-        'paystack' => App\Domains\Payments\Providers\Adapters\PaystackAdapter::class,
+        'paystack' => \App\Supports\Providers\Adapters\PaystackAdapter::class,
     ],
 
 ];

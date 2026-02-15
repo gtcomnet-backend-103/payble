@@ -6,6 +6,9 @@ namespace App\Models;
 
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Notifications\Notifiable;
+use Spatie\OneTimePasswords\Models\Concerns\HasOneTimePasswords;
 
 /**
  * @property int $id
@@ -33,6 +36,7 @@ use Filament\Panel;
  */
 final class Admin extends \Illuminate\Foundation\Auth\User implements FilamentUser
 {
+    use HasFactory, HasOneTimePasswords, Notifiable;
     public function canAccessPanel(Panel $panel): bool
     {
         return true; // TODO: implement this

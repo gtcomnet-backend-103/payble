@@ -35,7 +35,7 @@ beforeEach(function () {
     ]);
 });
 
-it('processes ledger postings when transaction is successful with merchant bearer', function () {
+it('processes ledger postings when transaction is successful with account bearer', function () {
     // Arrange
     $paymentIntent = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
@@ -51,7 +51,7 @@ it('processes ledger postings when transaction is successful with merchant beare
     $event = new TransactionSuccessful(
         transaction: $transaction,
         provider: $this->provider,
-        bearer: FeeBearer::Merchant,
+        bearer: FeeBearer::ACCOUNT,
         totalFee: 50,
         providerFee: 10
     );
@@ -103,57 +103,6 @@ it('processes ledger postings when transaction is successful with merchant beare
     $this->assertDatabaseHas('ledger_entries', [
         'ledger_account_id' => $businessAccount->id,
         'amount' => 950,
-        'direction' => 'credit',
-        'transaction_id' => $transaction->id,
-    ]);
-});
-
-it('processes ledger postings with customer bearer', function () {
-    // Arrange
-    $paymentIntent = PaymentIntent::factory()->create([
-        'business_id' => $this->business->id,
-        'amount' => 1000,
-        'amount_paid' => 1050,
-        'currency' => Currency::NGN,
-        'status' => PaymentStatus::Success,
-        'reference' => 'REF_TX_456',
-    ]);
-    $transaction = $paymentIntent->transaction;
-    $transaction->update(['status' => TransactionStatus::Success]);
-
-    $event = new TransactionSuccessful(
-        transaction: $transaction,
-        provider: $this->provider,
-        bearer: FeeBearer::Customer,
-        totalFee: 50,
-        providerFee: 10
-    );
-
-    // Act
-    $listener = app(ProcessTransactionLedger::class);
-    $listener->handle($event);
-
-    // Assert
-    // 1. Provider Clearing Account (1040 Debit)
-    $providerAccount = Account::where('type', AccountType::PROVIDER_CLEARING)
-        ->where('holder_id', $this->provider->id)
-        ->first();
-
-    $this->assertDatabaseHas('ledger_entries', [
-        'ledger_account_id' => $providerAccount->id,
-        'amount' => 1040,
-        'direction' => 'debit',
-        'transaction_id' => $transaction->id,
-    ]);
-
-    // 2. Business Wallet (1000 Credit)
-    $businessAccount = Account::where('type', AccountType::BUSINESS_WALLET)
-        ->where('holder_id', $this->business->id)
-        ->first();
-
-    $this->assertDatabaseHas('ledger_entries', [
-        'ledger_account_id' => $businessAccount->id,
-        'amount' => 1000,
         'direction' => 'credit',
         'transaction_id' => $transaction->id,
     ]);

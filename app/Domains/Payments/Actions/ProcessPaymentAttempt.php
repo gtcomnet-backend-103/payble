@@ -6,12 +6,11 @@ namespace App\Domains\Payments\Actions;
 
 use App\Contracts\IdempotentAction;
 use App\Domains\Payments\Events\TransactionSuccessful;
-use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Enums\AuthorizationStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\TransactionStatus;
 use App\Models\AuthorizationAttempt;
-use App\Models\Transaction;
+use App\Supports\Providers\Facades\PaymentProvider;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -50,7 +49,7 @@ final class ProcessPaymentAttempt implements IdempotentAction
                 return false;
             }
         } catch (Exception $e) {
-            Log::error('Payment verification failed: '.$e->getMessage());
+            Log::error('Payment verification failed: ' . $e->getMessage());
 
             return false;
         }
@@ -81,6 +80,7 @@ final class ProcessPaymentAttempt implements IdempotentAction
             $finalStatus = $verificationResponse->status;
 
             $attempt->transitionTo($finalStatus);
+            $transaction->update(['fee' => $attempt->fee]);
             $transaction->transitionTo(TransactionStatus::from($finalStatus->value));
             $payment->transitionTo(PaymentStatus::from($finalStatus->value));
 

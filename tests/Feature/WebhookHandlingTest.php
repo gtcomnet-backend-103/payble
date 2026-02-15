@@ -51,7 +51,7 @@ it('receives and processes a successful provider webhook', function () {
         'business_id' => $this->business->id,
         'amount' => 1000,
         'reference' => 'REF_WEBHOOK_1',
-        'bearer' => App\Enums\FeeBearer::Customer,
+        'bearer' => App\Enums\FeeBearer::ACCOUNT,
     ]);
 
     FeeConfig::factory()->create([
@@ -124,11 +124,11 @@ it('receives and processes a successful provider webhook', function () {
 
     // 7. Assert Ledger Postings
     $ledger = app(App\Domains\Ledger\Services\LedgerService::class);
-    $clearing = $ledger->providerReceivable($this->provider, 'NGN');
-    $customerFunds = $ledger->customerWallet($payment->customer, 'NGN');
-    $platformRevenue = $ledger->platformRevenue('NGN');
-    $providerFee = $ledger->providerFee($this->provider, 'NGN');
-    $businessWallet = $ledger->businessReceivable($this->business, 'NGN');
+    $clearing = $ledger->providerReceivable($this->provider, 'NGN', App\Enums\PaymentMode::Test);
+    $customerFunds = $ledger->customerWallet($payment->customer, 'NGN', App\Enums\PaymentMode::Test);
+    $platformRevenue = $ledger->platformRevenue('NGN', App\Enums\PaymentMode::Test);
+    $providerFee = $ledger->providerFee($this->provider, 'NGN', App\Enums\PaymentMode::Test);
+    $businessWallet = $ledger->businessReceivable($this->business, 'NGN', App\Enums\PaymentMode::Test);
 
     expect($clearing)->not->toBeNull()
         ->and($customerFunds)->not->toBeNull()

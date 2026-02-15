@@ -1,12 +1,14 @@
 ### API Configuration
 @baseUrl = http://rabbitapp.test
-@apiKey =
-@reference = REF_1001sfsdafddlsdedndammd
+@apiKey = Bearer {{auth_token}}
+
+#payment channel - card or bank_transfer
+@channel = bank_transfer
 
 ### 1. Initialize Payment
 # Create a new payment intent for a customer
 POST {{baseUrl}}/api/payments
-Authorization: Bearer {{apiKey}}
+Authorization: {{apiKey}}
 Content-Type: application/json
 Accept: application/json
 
@@ -14,12 +16,13 @@ Accept: application/json
     "amount": 500000,
     "email": "customer@example.com",
     "currency": "NGN",
-    "reference": "{{reference}}",
-    "bearer": "customer",
+    "bearer": "account",
     "metadata": {
         "order_id": "12345"
     }
 }
+
+> {% client.global.set('reference', response.body.data.reference) %}
 
 ### 2. Authorize Payment (Card)
 # Use this to initiate a card payment.
@@ -29,24 +32,13 @@ Content-Type: application/json
 Accept: application/json
 
 {
-    "channel": "card",
+    "channel": "{{channel}}",
     "card": {
         "number": "507850785078507804",
         "cvv": "884",
         "expiry_month": "02",
         "expiry_year": "27"
     }
-}
-
-### 3. Authorize Payment (Bank Transfer)
-# Use this to initiate a bank transfer payment.
-POST {{baseUrl}}/api/payments/{{reference}}/authorize
-Authorization: Bearer {{apiKey}}
-Content-Type: application/json
-Accept: application/json
-
-{
-    "channel": "bank_transfer"
 }
 
 ### 4. Validate Payment (OTP/PIN)

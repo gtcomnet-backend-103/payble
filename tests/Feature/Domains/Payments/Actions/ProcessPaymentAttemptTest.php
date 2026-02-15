@@ -40,7 +40,7 @@ beforeEach(function () {
         'business_id' => $this->business->id,
         'amount' => 1000,
         'reference' => 'REF_PAYMENT_1',
-        'bearer' => FeeBearer::Merchant,
+        'bearer' => FeeBearer::ACCOUNT,
         'status' => PaymentStatus::Pending,
         'currency' => 'NGN',
     ]);

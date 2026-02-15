@@ -8,10 +8,11 @@ enum PayoutStatus: string
 {
     case Pending = 'pending';
     case Processing = 'processing';
-    case Completed = 'completed';
+    case Success = 'success';
     case Failed = 'failed';
     case Reversed = 'reversed';
     case Draft = 'draft';
+    case Complete = 'complete';
 
     public function is(self|string $status): bool
     {
@@ -24,9 +25,11 @@ enum PayoutStatus: string
     public function transitions(): array
     {
         return match ($this) {
-            self::Pending => [self::Processing, self::Completed, self::Failed],
-            self::Processing => [self::Completed, self::Failed],
-            self::Completed, self::Failed, self::Reversed => [],
+            self::Draft => [self::Pending],
+            self::Pending => [self::Processing, self::Success, self::Failed],
+            self::Processing => [self::Success, self::Failed],
+            self::Success, self::Failed, self::Reversed => [],
+            self::Complete => [],
         };
     }
 

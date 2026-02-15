@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Infrastructure\Payment\Adapters;
 
-use App\Domains\Payments\Providers\DataTransferObjects\CustomerDTO;
-use App\Domains\Payments\Providers\DataTransferObjects\PaymentAuthorizeDTO;
-use App\Domains\Payments\Providers\Facades\PaymentProvider;
 use App\Models\Provider;
+use App\Supports\Providers\DataTransferObjects\CustomerDTO;
+use App\Supports\Providers\DataTransferObjects\PaymentAuthorizeDTO;
+use App\Supports\Providers\Facades\PaymentProvider;
 use Domain\Payment\Contracts\PaymentGatewayInterface;
 use Domain\Payment\Enums\Channel;
 
