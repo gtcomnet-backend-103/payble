@@ -33,6 +33,7 @@ final class RecordPayoutLedgerPostings
 
         $currency = $transaction->currency->value;
         $amount = $payout->amount;
+        $platformFee = $transaction->fee;
         $mode = $transaction->mode;
 
         // Retrieve accounts

@@ -9,6 +9,7 @@ use App\Domains\Ledger\DataTransferObjects\TransactionData;
 use App\Enums\Currency;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -106,10 +107,10 @@ final class Payout extends Model implements Recordable
         );
     }
 
-    protected function netAmount(): \Illuminate\Database\Eloquent\Casts\Attribute
+    protected function netAmount(): Attribute
     {
-        return \Illuminate\Database\Eloquent\Casts\Attribute::get(
-            fn() => max(0, $this->amount - $this->fee)
+        return Attribute::get(
+            fn () => max(0, $this->amount - $this->fee)
         );
     }
 }

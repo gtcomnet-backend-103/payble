@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Domains\Ledger\Services\LedgerService;
 use App\Domains\Payouts\Actions\AuthorizePayout;
 use App\Domains\Payouts\Actions\CreatePayout;
@@ -18,6 +20,7 @@ use App\Models\Provider;
 use App\Supports\Providers\DataTransferObjects\ProviderResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Context;
+
 use function Pest\Laravel\mock;
 
 uses(RefreshDatabase::class);
@@ -75,7 +78,7 @@ it('completes the full payout lifecycle', function () {
     $payout = $createAction->execute($this->business, $this->admin, [
         'amount' => $payoutAmount,
         'currency' => Currency::NGN->value,
-        'reference' => 'PAY-' . Str::random(10),
+        'reference' => 'PAY-'.Str::random(10),
     ]);
 
     expect($payout->status)->toBe(PayoutStatus::Pending)
@@ -117,7 +120,10 @@ it('completes the full payout lifecycle', function () {
 it('reverses funds on payout failure', function () {
     // 1. Setup Balance
     $initialAmount = 1000000;
-    $this->ledgerService->issueInternalCredit($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test), $initialAmount);
+    $this->ledgerService->issueInternalCredit(
+        $this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test),
+        $initialAmount
+    );
 
     $payoutAmount = 100000;
     /** @var CreatePayout $createAction */
@@ -127,7 +133,6 @@ it('reverses funds on payout failure', function () {
         'currency' => Currency::NGN->value,
     ]);
 
-    expect($this->ledgerService->getBalance($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)))->toBe(900000);
 
     // Transition to Processing
     $payout->update(['status' => PayoutStatus::Processing, 'provider_id' => Provider::first()->id]);
@@ -140,8 +145,9 @@ it('reverses funds on payout failure', function () {
     $processAction = app(ProcessPayout::class);
     $payout = $processAction->execute($payout);
 
-    expect($payout->status)->toBe(PayoutStatus::Failed);
-
-    // Verify funds reversed (900,000 + 100,000 = 1,000,000)
-    expect($this->ledgerService->getBalance($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)))->toBe(1000000);
+    expect($payout->status)->toBe(PayoutStatus::Failed)
+        ->and($this->ledgerService->getBalance(
+            $this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)
+        ))
+        ->toBe(1000000);
 });

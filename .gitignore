@@ -7,7 +7,7 @@
 /storage/pail
 /vendor
 .env
-*.env.json
+http/*.env.json
 .DS_Store
 .env.backup
 .env.production

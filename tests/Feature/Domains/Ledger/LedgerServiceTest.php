@@ -42,7 +42,7 @@ it('atomically updates balances using double entry', function () {
     $batch = $this->ledgerService->startBatch($transaction);
 
     DB::transaction(function () use ($batch, $transaction, $debitAccount, $creditAccount) {
-        $this->ledgerService->post($batch, $transaction, $debitAccount, $creditAccount, 1000);
+        $this->ledgerService->post($transaction, $debitAccount, $creditAccount, 1000);
     });
 
     // Check Ledger Entries
@@ -78,7 +78,7 @@ it('is idempotent via ledger batches', function () {
     $batch = $this->ledgerService->startBatch($transaction);
 
     // First post
-    $this->ledgerService->post($batch, $transaction, $debitAccount, $creditAccount, 1000);
+    $this->ledgerService->post($transaction, $debitAccount, $creditAccount, 1000);
     $batch->markPosted();
 
     // Try second post (should be prevented by developer logic using isPosted)
@@ -96,7 +96,6 @@ it('handles concurrent updates correctly', function () {
 
     // Simulate 3 increments
     $this->ledgerService->post(
-        $this->ledgerService->startBatch(PaymentIntent::factory()->create()->transaction),
         PaymentIntent::factory()->create()->transaction,
         $account,
         $this->ledgerService->platformReceivable('NGN'),
@@ -104,7 +103,6 @@ it('handles concurrent updates correctly', function () {
     );
 
     $this->ledgerService->post(
-        $this->ledgerService->startBatch(PaymentIntent::factory()->create()->transaction),
         PaymentIntent::factory()->create()->transaction,
         $account,
         $this->ledgerService->platformReceivable('NGN'),

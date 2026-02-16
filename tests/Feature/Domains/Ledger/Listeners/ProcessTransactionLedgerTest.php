@@ -68,8 +68,15 @@ it('processes ledger postings when transaction is successful with account bearer
 
     $this->assertDatabaseHas('ledger_entries', [
         'ledger_account_id' => $providerAccount->id,
-        'amount' => 990,
+        'amount' => 1000,
         'direction' => 'debit',
+        'transaction_id' => $transaction->id,
+    ]);
+
+    $this->assertDatabaseHas('ledger_entries', [
+        'ledger_account_id' => $providerAccount->id,
+        'amount' => 10,
+        'direction' => 'credit',
         'transaction_id' => $transaction->id,
     ]);
 

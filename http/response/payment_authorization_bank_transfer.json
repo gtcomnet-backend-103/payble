@@ -1,0 +1,18 @@
+{
+  "status": "pending",
+  "amount": 100000,
+  "reference": "T0dR7RFM8Ee14X",
+  "customer": {
+    "first_name": null,
+    "last_name": null,
+    "email": "customer@example.com",
+    "phone": null
+  },
+  "fee": 0,
+  "authorization": {
+    "account_number": "1231011666",
+    "bank_name": "Test Bank",
+    "account_name": "TEST-MANAGED-ACCOUNT",
+    "expires_at": null
+  }
+}

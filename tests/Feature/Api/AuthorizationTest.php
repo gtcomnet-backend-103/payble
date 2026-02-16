@@ -93,10 +93,10 @@ it('can authorizes a bank transfer payment', function () {
                 'amount' => 10000,
                 'status' => 'success',
                 'bank' => [
-                    'account_number' => '1234567890',
-                    'account_name' => 'Test User',
                     'name' => 'Test Bank',
                 ],
+                'account_number' => '1234567890',
+                'account_name' => 'Test User',
             ],
         ]),
         'api.paystack.co/transaction/verify/*' => Illuminate\Support\Facades\Http::response([

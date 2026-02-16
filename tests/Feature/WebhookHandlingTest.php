@@ -49,19 +49,16 @@ it('receives and processes a successful provider webhook', function () {
     // 1. Setup pending authorization
     $payment = PaymentIntent::factory()->create([
         'business_id' => $this->business->id,
-        'amount' => 1000,
+        'amount' => 100000,
         'reference' => 'REF_WEBHOOK_1',
         'bearer' => App\Enums\FeeBearer::ACCOUNT,
     ]);
 
     FeeConfig::factory()->create([
-        'fixed_amount' => 20,
+        'fixed_amount' => 2000,
         'channel' => 'card',
     ]);
 
-    // Mock Paystack fee - PaystackAdapter::getFee returns 1000 (10.00) fix
-    // but we can mock the config if needed or just use what adapter returns.
-    // PaystackAdapter::getFee is currently hardcoded to 1000.
 
     $attempt = app(AuthorizePayment::class)->createAttempt($payment, PaymentChannel::Card);
     $attempt->update([
@@ -107,12 +104,6 @@ it('receives and processes a successful provider webhook', function () {
     ]);
 
     $event = WebhookEvent::first();
-
-    // 5. Run the Job
-    app(App\Jobs\ProcessWebhook::class, ['webhookEventId' => $event->id])->handle(
-        app(App\Domains\Payments\Actions\ProcessPaymentAttempt::class)
-    );
-
     // 6. Assert State Changes
     $attempt->refresh();
     expect($attempt->status)->toBe(AuthorizationStatus::Success);
@@ -125,32 +116,17 @@ it('receives and processes a successful provider webhook', function () {
     // 7. Assert Ledger Postings
     $ledger = app(App\Domains\Ledger\Services\LedgerService::class);
     $clearing = $ledger->providerReceivable($this->provider, 'NGN', App\Enums\PaymentMode::Test);
-    $customerFunds = $ledger->customerWallet($payment->customer, 'NGN', App\Enums\PaymentMode::Test);
     $platformRevenue = $ledger->platformRevenue('NGN', App\Enums\PaymentMode::Test);
     $providerFee = $ledger->providerFee($this->provider, 'NGN', App\Enums\PaymentMode::Test);
     $businessWallet = $ledger->businessReceivable($this->business, 'NGN', App\Enums\PaymentMode::Test);
 
     expect($clearing)->not->toBeNull()
-        ->and($customerFunds)->not->toBeNull()
         ->and($platformRevenue)->not->toBeNull()
         ->and($businessWallet)->not->toBeNull()
-        ->and($ledger->getBalance($customerFunds))->toBe(0)
-        ->and($ledger->getBalance($clearing))->toBe(20) // 1020 (Dr) - 1000 (Cr) = 20
-        ->and($ledger->getBalance($providerFee))->toBe(1000) // Paystack fee
-        ->and($ledger->getBalance($platformRevenue))->toBe(-20) // 20 Customer Fee (Cr)
-        ->and($ledger->getBalance($businessWallet))->toBe(-1000); // 1000 Merchant Net (Cr)
-    // Wait: Gross is 1000 + 20 fee = 1020.
-    // Provider gets 1020. Fee is 1000. Net in provider is 20.
-    // Business gets 1000? Let's re-run and see actuals if it fails.
-    // PaystackAdapter::getFee returns 1000.
-    // RecordPaymentLedgerPostings logic:
-    // $gross = 1020 (if bearer is customer, and fixed_amount is 20)
-    // $providerFee = 1000
-    // $businessFee = 0 (no merchant fee config)
-    // $customerFee = 20
-    // $netInProviderAccount = 1020 - 1000 = 20
-    // $totalPlatformRevenue = 0 + 20 = 20
-    // $merchantNet = 1020 - 20 = 1000
+        ->and($ledger->getBalance($clearing))->toBe(99000)
+        ->and($ledger->getBalance($providerFee))->toBe(1000)
+        ->and($ledger->getBalance($platformRevenue))->toBe(-2000)
+        ->and($ledger->getBalance($businessWallet))->toBe(-98000);
 
     $event->refresh();
     expect($event->processed_at)->not->toBeNull();

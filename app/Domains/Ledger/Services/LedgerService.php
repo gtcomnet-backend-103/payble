@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\Ledger\Services;
 
+use App\Domains\Ledger\DataTransferObjects\LedgerEntry as LedgerEntryDto;
+use App\Domains\Ledger\Facades\Ledger;
 use App\Enums\AccountType;
 use App\Enums\EntryDirection;
 use App\Enums\PaymentMode;
@@ -39,11 +41,6 @@ final class LedgerService
                 'metadata' => $metadata,
             ]
         );
-    }
-
-    public function customerWallet(Model $customer, string $currency, PaymentMode $mode = PaymentMode::Live): Account
-    {
-        return $this->getAccount($customer, AccountType::CUSTOMER_WALLET, $currency, $mode);
     }
 
     public function businessReceivable(Model $business, string $currency, PaymentMode $mode = PaymentMode::Live): Account
@@ -95,7 +92,6 @@ final class LedgerService
      * Must be called within a DB transaction.
      */
     public function post(
-        LedgerBatch $batch,
         Transaction $tx,
         Account $debit,
         Account $credit,
@@ -105,31 +101,12 @@ final class LedgerService
             return;
         }
 
-        DB::transaction(function () use ($batch, $tx, $debit, $credit, $amount) {
-            // 1. Create Debit Entry
-            $debitEntry = LedgerEntry::create([
-                'ledger_batch_id' => $batch->id,
-                'ledger_account_id' => $debit->id,
-                'transaction_id' => $tx->id,
-                'reference' => $tx->reference,
-                'amount' => $amount,
-                'direction' => EntryDirection::DEBIT,
-            ]);
+        $entries = [
+            LedgerEntryDto::debit($debit, $amount),
+            LedgerEntryDto::credit($credit, $amount),
+        ];
 
-            // 2. Create Credit Entry
-            $creditEntry = LedgerEntry::create([
-                'ledger_batch_id' => $batch->id,
-                'ledger_account_id' => $credit->id,
-                'transaction_id' => $tx->id,
-                'reference' => $tx->reference,
-                'amount' => $amount,
-                'direction' => EntryDirection::CREDIT,
-            ]);
-
-            // 3. Increment Snapshots (Atomic SQL)
-            $this->incrementSnapshot($debit, $amount, $debitEntry->id);
-            $this->incrementSnapshot($credit, -$amount, $creditEntry->id);
-        });
+        $this->transaction($tx)->entries($entries);
     }
 
     /**
@@ -185,7 +162,7 @@ final class LedgerService
                 'ledger_batch_id' => $batch->id,
                 'ledger_account_id' => $account->id,
                 'transaction_id' => null,
-                'reference' => 'INT-' . strtoupper(bin2hex(random_bytes(4))),
+                'reference' => 'INT-'.mb_strtoupper(bin2hex(random_bytes(4))),
                 'amount' => $amount,
                 'direction' => EntryDirection::CREDIT,
             ]);

@@ -37,8 +37,9 @@ final class DashboardPanelServiceProvider extends PanelProvider
             ->emailVerification(isRequired: false)
             ->tenant(Business::class)
             ->tenantRegistration(RegisterBusiness::class)
+            ->brandLogo(asset('images/brand-logo.svg'))
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => '#00a658',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

@@ -71,9 +71,9 @@ final class PaystackAdapter implements ProviderAdapter
             status: $mappedStatus,
             providerReference: $data['reference'] ?? $dto->reference,
             bankDetails: isset($data['bank']) ? new BankDetailsDTO(
-                accountNumber: $data['bank']['account_number'] ?? '',
+                accountNumber: $data['account_number'] ?? '',
                 bankName: $data['bank']['name'] ?? '',
-                accountName: $data['bank']['account_name'] ?? '',
+                accountName: $data['account_name'] ?? '',
                 expiresAt: null
             ) : null,
             rawResponse: $data

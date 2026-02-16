@@ -52,7 +52,7 @@ beforeEach(function () {
     // Post funding entry
     $platformClearing = $ledgerService->platformReceivable('NGN', PaymentMode::Test);
     $batch = $ledgerService->startBatch($fundingTx, 'test_funding');
-    $ledgerService->post($batch, $fundingTx, $businessAccount, $platformClearing, 1000000);
+    $ledgerService->post($fundingTx, $businessAccount, $platformClearing, 1000000);
 
     $this->disbursementProvider = $this->mock(\App\Domains\Payouts\Contracts\DisbursementProviderInterface::class);
     $this->disbursementProvider->shouldReceive('provider')->andReturn($this->provider)->byDefault();

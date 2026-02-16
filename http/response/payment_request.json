@@ -1,0 +1,21 @@
+{
+  "data": {
+    "amount": 100000,
+    "currency": "NGN",
+    "transaction_date": "2026-02-16T13:02:26+00:00",
+    "status": "pending",
+    "reference": "5ybG9TWcgwpdyB",
+    "mode": "live",
+    "metadata": {
+      "order_id": "12345"
+    },
+    "channel": null,
+    "fee": 0,
+    "customer": {
+      "first_name": null,
+      "last_name": null,
+      "email": "customer@example.com",
+      "phone": null
+    }
+  }
+}

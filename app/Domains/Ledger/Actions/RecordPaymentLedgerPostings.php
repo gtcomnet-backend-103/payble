@@ -24,10 +24,10 @@ final class RecordPaymentLedgerPostings
         int $providerFee
     ): void {
         $currency = $transaction->currency->value;
-        $gross = $transaction->amount + $transaction->fee;
+        $gross = $transaction->amount;
 
         // Retrieve accounts
-        $providerReceivable = $this->ledgerService->providerReceivable($provider, $currency, $transaction->mode);
+        $providerClearing = $this->ledgerService->providerReceivable($provider, $currency, $transaction->mode);
         $platformRevenue = $this->ledgerService->platformRevenue($currency, $transaction->mode);
         $providerFeeExpense = $this->ledgerService->providerFee($provider, $currency, $transaction->mode);
         $businessWallet = $this->ledgerService->businessReceivable($transaction->business, $currency, $transaction->mode);
@@ -40,7 +40,6 @@ final class RecordPaymentLedgerPostings
         | Platform Share: Total income for you (Business Commission + Customer Surcharge)
         | Merchant Share: What the business gets to keep
         */
-        $netInProviderAccount = $gross - $providerFee;
         $totalPlatformRevenue = $businessFee + $customerFee;
         $merchantNet = $gross - $totalPlatformRevenue;
 
@@ -48,10 +47,11 @@ final class RecordPaymentLedgerPostings
 
         // 1. Where is the money? (Assets / Expenses - Debits)
         // Record the actual net amount held by the provider
-        $entries[] = LedgerEntryDTO::debit($providerReceivable, $netInProviderAccount);
+        $entries[] = LedgerEntryDTO::debit($providerClearing, $gross);
 
         // Record the cost of processing as an expense
         if ($providerFee > 0) {
+            $entries[] = LedgerEntryDTO::credit($providerClearing, $providerFee);
             $entries[] = LedgerEntryDTO::debit($providerFeeExpense, $providerFee);
         }
 

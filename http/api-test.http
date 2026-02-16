@@ -1,11 +1,12 @@
 ### API Configuration
-@baseUrl = http://rabbitapp.test
+@baseUrl = {{base_url}}
 @apiKey = Bearer {{auth_token}}
 
 #payment channel - card or bank_transfer
-@channel = bank_transfer
+@channel = card
 
-### 1. Initialize Payment
+###
+# @name Initialize Payment
 # Create a new payment intent for a customer
 POST {{baseUrl}}/api/payments
 Authorization: {{apiKey}}
@@ -13,7 +14,8 @@ Content-Type: application/json
 Accept: application/json
 
 {
-    "amount": 500000,
+    "amount": 100000,
+    "reference": "{{$random.alphanumeric(14)}}",
     "email": "customer@example.com",
     "currency": "NGN",
     "bearer": "account",
@@ -23,9 +25,10 @@ Accept: application/json
 }
 
 > {% client.global.set('reference', response.body.data.reference) %}
+>>! {{$projectRoot}}/http/response/payment_request.json
 
-### 2. Authorize Payment (Card)
-# Use this to initiate a card payment.
+###
+# @name Authorize Payment
 POST {{baseUrl}}/api/payments/{{reference}}/authorize
 Authorization: Bearer {{apiKey}}
 Content-Type: application/json
@@ -41,6 +44,8 @@ Accept: application/json
     }
 }
 
+>>! {{$projectRoot}}/http/response/payment_authorization_{{channel}}.json
+
 ### 4. Validate Payment (OTP/PIN)
 # Required if the authorization step returns 'pending_otp' or 'pending_pin'
 POST {{baseUrl}}/api/payments/{{reference}}/validate
@@ -53,6 +58,9 @@ Accept: application/json
     "otp": "123456",
     "phone": "09021234567"
 }
+
+> {% client.global.set('status', response.body.action) %}
+>>! {{$projectRoot}}/http/response/payment_validation_{{status}}.json
 
 ### 5. Get Transaction Details
 # Retrieve the full transaction record once it is completed or for status polling
