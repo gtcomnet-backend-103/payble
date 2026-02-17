@@ -46,8 +46,8 @@ Accept: application/json
 
 >>! {{$projectRoot}}/http/response/payment_authorization_{{channel}}.json
 
-### 4. Validate Payment (OTP/PIN)
-# Required if the authorization step returns 'pending_otp' or 'pending_pin'
+###
+# @name Validate Payment (OTP/PIN)
 POST {{baseUrl}}/api/payments/{{reference}}/validate
 Authorization: Bearer {{apiKey}}
 Content-Type: application/json

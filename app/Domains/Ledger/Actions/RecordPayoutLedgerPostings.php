@@ -34,18 +34,26 @@ final class RecordPayoutLedgerPostings
         $currency = $transaction->currency->value;
         $amount = $payout->amount;
         $platformFee = $transaction->fee;
+        $providerFee = $transaction->provider_fee;
         $mode = $transaction->mode;
 
         // Retrieve accounts
         $businessReserved = $this->ledgerService->getAccount($transaction->business, AccountType::BUSINESS_HOLDS, $currency, $mode);
         $providerClearing = $this->ledgerService->providerReceivable($payout->provider, $currency, $mode);
+        $expense = $this->ledgerService->providerFee($payout->provider, $currency, $mode);
+        $revenue = $this->ledgerService->platformRevenue($currency, $mode);
 
         $entries = [
-            // Credit Business Reserved (Decrease reserved balance)
-            LedgerEntryDTO::credit($businessReserved, $amount),
-
             // Debit Provider Clearing (Increase provider clearing/receivable)
             LedgerEntryDTO::debit($providerClearing, $amount),
+            LedgerEntryDTO::credit($businessReserved, $amount),
+
+            LedgerEntryDTO::debit($expense, $providerFee),
+
+            // Credit Business Reserved (Decrease reserved balance)
+
+            LedgerEntryDTO::debit($businessReserved, $platformFee),
+            LedgerEntryDTO::credit($revenue, $platformFee),
         ];
 
         Ledger::transaction($transaction)->entries($entries);

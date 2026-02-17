@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Domains\Payouts\Contracts\BankAccountResolver;
 use App\Domains\Payouts\Contracts\DisbursementProviderInterface;
 use App\Domains\Payouts\Contracts\FeeCalculatorInterface;
 use App\Domains\Payouts\Contracts\LedgerServiceInterface;
@@ -25,6 +26,7 @@ final class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(OtpServiceInterface::class, OtpService::class);
         $this->app->bind(DisbursementProviderInterface::class, DisbursementProvider::class);
+        $this->app->bind(BankAccountResolver::class, DisbursementProvider::class);
         $this->app->bind(FeeCalculatorInterface::class, PayoutFeeCalculator::class);
         $this->app->bind(LedgerServiceInterface::class, LedgerPayoutService::class);
     }

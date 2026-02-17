@@ -83,7 +83,7 @@ final class Business extends Authenticatable
 
     public function bankAccount(): BelongsTo
     {
-        return $this->belongsTo(BankAccount::class);
+        return $this->belongsTo(BankAccount::class, 'bank_account_id');
     }
 
     /**

@@ -29,4 +29,9 @@ final class BankAccount extends Model
     {
         return $this->hasMany(Payout::class);
     }
+
+    public function ledgerEntries(): HasMany
+    {
+        return $this->hasMany(LedgerEntry::class);
+    }
 }

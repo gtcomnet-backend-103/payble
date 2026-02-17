@@ -29,7 +29,7 @@ final class RecordPaymentLedgerPostings
         // Retrieve accounts
         $providerClearing = $this->ledgerService->providerReceivable($provider, $currency, $transaction->mode);
         $platformRevenue = $this->ledgerService->platformRevenue($currency, $transaction->mode);
-        $providerFeeExpense = $this->ledgerService->providerFee($provider, $currency, $transaction->mode);
+        $expense = $this->ledgerService->providerFee($provider, $currency, $transaction->mode);
         $businessWallet = $this->ledgerService->businessReceivable($transaction->business, $currency, $transaction->mode);
 
         /*
@@ -42,25 +42,23 @@ final class RecordPaymentLedgerPostings
         */
         $totalPlatformRevenue = $businessFee + $customerFee;
         $merchantNet = $gross - $totalPlatformRevenue;
+        $netReceivableFromProvider = $gross - $providerFee; // What provider will actually settle
 
-        $entries = [];
+        $entries = [
+            // 1. Record net receivable from provider (asset)
+            LedgerEntryDTO::debit($providerClearing, $netReceivableFromProvider),
 
-        // 1. Where is the money? (Assets / Expenses - Debits)
-        // Record the actual net amount held by the provider
-        $entries[] = LedgerEntryDTO::debit($providerClearing, $gross);
+            // 2. Record provider fee as expense
+            ...($providerFee > 0 ? [
+                LedgerEntryDTO::debit($expense, $providerFee),
+            ] : []),
 
-        // Record the cost of processing as an expense
-        if ($providerFee > 0) {
-            $entries[] = LedgerEntryDTO::credit($providerClearing, $providerFee);
-            $entries[] = LedgerEntryDTO::debit($providerFeeExpense, $providerFee);
-        }
+            // 3. Record platform revenue (income) - CREDIT
+            LedgerEntryDTO::credit($platformRevenue, $totalPlatformRevenue),
 
-        // 2. Who owns the money? (Revenue / Liabilities - Credits)
-        // Record your platform's earnings
-        $entries[] = LedgerEntryDTO::credit($platformRevenue, $totalPlatformRevenue);
-
-        // Record the debt owed to the merchant
-        $entries[] = LedgerEntryDTO::credit($businessWallet, $merchantNet);
+            // 4. Record liability to merchant
+            LedgerEntryDTO::credit($businessWallet, $merchantNet),
+        ];
 
         // Final check: (netInProvider + providerFee) - (platformRevenue + businessWallet) === 0
         Ledger::transaction($transaction)->entries($entries);

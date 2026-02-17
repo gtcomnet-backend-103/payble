@@ -4,18 +4,20 @@ declare(strict_types=1);
 
 namespace App\Domains\Payouts\Actions;
 
-use App\Domains\Payouts\Services\DisbursementService;
+use App\Domains\Payouts\Contracts\BankAccountResolver;
 use App\Enums\Currency;
 use App\Models\BankAccount;
 use App\Models\Business;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
-final class CreateRecipient
+final readonly class CreateRecipient
 {
     public function __construct(
-        private readonly DisbursementService $disbursementService,
-    ) {}
+        private BankAccountResolver $bankAccountResolver,
+    )
+    {
+    }
 
     public function execute(Business $business, array $data): BankAccount
     {
@@ -25,14 +27,21 @@ final class CreateRecipient
             'currency' => ['required', 'string', Rule::enum(Currency::class)],
         ])->validate();
 
-        $data = $this->disbursementService->validateBankAccount($data['account_number'], $data['bank_code']);
+        $account = $this->bankAccountResolver->resolveAccount(
+            $data['bank_code'],
+            $data['account_number']
+        );
 
-        return $business->bankAccount()->create([
-            'account_number' => $data['account_number'],
-            'account_name' => $data['account_name'],
-            'bank_code' => $data['bank_code'],
+        $bankAccount =  $business->bankAccount()->create([
+            'account_number' => $account->accountNumber,
+            'account_name' => $account->accountName,
+            'bank_code' => $account->bankCode,
             'currency' => $data['currency'],
-            'verified_at' => now(),
+            'verified_at' => now()
         ]);
+
+        $business->bankAccount()->associate($bankAccount);
+        $business->save();
+        return $bankAccount;
     }
 }

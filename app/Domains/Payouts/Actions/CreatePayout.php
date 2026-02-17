@@ -11,11 +11,10 @@ use App\Domains\Payouts\NewPayoutEvent;
 use App\Enums\Currency;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
-use App\Models\Admin;
 use App\Models\Business;
 use App\Models\Payout;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -44,17 +43,11 @@ final readonly class CreatePayout implements IdempotentAction
      *
      * @throws Throwable
      */
-    public function execute(Business $business, Admin $user, array $data): Payout
+    public function execute(Business $business, Authenticatable $user, array $data): Payout
     {
         $data = Validator::make($data, [
-            'amount' => ['required', 'integer', 'min:100'],
-            'currency' => ['required', 'string', Rule::enum(Currency::class)],
-            'bank_code' => ['sometimes', 'string'],
-            'account_number' => ['sometimes', 'string'],
-            'account_name' => ['sometimes', 'string'],
-            'reference' => ['nullable', 'string', 'max:100', Rule::unique('transactions', 'reference')->where('business_id', $business->getKey())],
             'requires_otp' => ['sometimes', 'boolean'],
-            'metadata' => ['nullable', 'array'],
+            'metadata' => ['sometimes', 'array'],
         ])->validate();
 
         if (! $bankAccount = $business->bankAccount()->first()) {
@@ -64,19 +57,31 @@ final readonly class CreatePayout implements IdempotentAction
         }
 
         return DB::transaction(function () use ($user, $bankAccount, $business, $data) {
-            $currency = Currency::tryFrom($data['currency']) ?? Currency::NGN;
+            $currency = $bankAccount->currency;
             $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? PaymentMode::Test->value);
             $reference = $data['reference'] ?? Str::uuid()->toString();
-            $providerReference = 'PRV_' . Str::random(12);
+            $providerReference = 'PRV_'.Str::random(12);
             $requiresOtp = $data['requires_otp'] ?? false;
             $metadata = $data['metadata'] ?? [];
             $metadata['account'] = $bankAccount->only(['account_name', 'account_number', 'bank_code']);
 
-            $fee = $this->feeCalculator->calculate($data['amount'], $currency);
 
+            $balance = $bankAccount->ledgerEntries()
+                ->selectRaw("
+                    SUM(
+                        CASE
+                            WHEN direction = 'debit' THEN -amount
+                            ELSE amount
+                        END
+                    ) as balance
+                ")->value('balance');
+
+            dd($balance);
+
+            $fee = $this->feeCalculator->calculate($data['amount'], $currency);
             $payout = $bankAccount->payouts()->create([
                 'business_id' => $business->id,
-                'originator_id' => $user->id,
+                'originator_id' => $user->getKey(),
                 'originator_type' => $user->getMorphClass(),
                 'amount' => $data['amount'],
                 'fee' => $fee,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Supports\Providers\Adapters;
 
+use App\Domains\Payouts\DataTransferObjects\BankAccountDetails;
 use App\Domains\Payouts\DataTransferObjects\PayoutTransferData;
 use App\Enums\AuthorizationStatus;
 use App\Enums\Currency;
@@ -14,6 +15,7 @@ use App\Supports\Providers\DataTransferObjects\PaymentAuthorizeDTO;
 use App\Supports\Providers\DataTransferObjects\PaymentValidateDTO;
 use App\Supports\Providers\DataTransferObjects\ProviderResponse;
 use App\Supports\Providers\DataTransferObjects\WebhookPayloadDTO;
+use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -35,9 +37,9 @@ final class PaystackAdapter implements ProviderAdapter
             $payload['card'] = $dto->channelDetails;
         }
 
-        if ($dto->channel === PaymentChannel::BankTransfer){
+        if ($dto->channel === PaymentChannel::BankTransfer) {
             $payload['bank_transfer'] = [
-               'account_expires_at' => now()->addMinutes(10)->toIso8601String()
+                'account_expires_at' => now()->addMinutes(10)->toIso8601String(),
             ];
         }
 
@@ -273,5 +275,25 @@ final class PaystackAdapter implements ProviderAdapter
     public function verifyTransfer(string $reference): ProviderResponse
     {
         return $this->verifyTransaction($reference);
+    }
+
+    public function validateAccount(string $accountNumber, string $bankCode): BankAccountDetails
+    {
+        try {
+            $response = Http::withToken(config('services.paystack.secret'))
+                ->get("https://api.paystack.co/bank/resolve?account_number=$accountNumber&bank_code=$bankCode")
+                ->throw();
+
+            $data =  $response->json('data');
+
+            return new BankAccountDetails(
+                $data['account_name'],
+                $data['account_number'],
+                $bankCode,
+            );
+        } catch (Exception $exception) {
+            Log::error($exception->getMessage());
+            throw new Exception('Account validation failed');
+        }
     }
 }
