@@ -33,7 +33,7 @@ final class PaymentController
 
         $transaction = $this->requestPayment->execute($business, $request->validated());
 
-        return new TransactionResource($transaction);
+        return TransactionResource::make($transaction);
     }
 
     public function update(string $reference, AuthorizePaymentRequest $request): JsonResponse
@@ -41,8 +41,8 @@ final class PaymentController
         try {
             $channel = PaymentChannel::from($request->validated('channel') ?? PaymentChannel::Card->value);
             $attempt = $this->authorizePayment->execute($reference, $channel, $request->validated());
-            $attempt->load(['paymentIntent.customer']);
-            $payment = $attempt->paymentIntent;
+            $attempt->load(['intent.customer']);
+            $payment = $attempt->Intent;
 
             if ($attempt->status->validating()) {
                 return response()->json([
@@ -66,6 +66,7 @@ final class PaymentController
                 'authorization' => $attempt->authorization,
             ]);
         } catch (Exception $e) {
+            report($e);
             return response()->json([
                 'message' => $e->getMessage(),
             ], 400);

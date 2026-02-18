@@ -53,7 +53,7 @@ final class ProcessWebhook implements ShouldQueue
 
         // 2. State Evaluation
         /** @var ?PaymentIntent $payment */
-        $payment = $attempt->paymentIntent;
+        $payment = $attempt->Intent;
         if (PaymentStatus::Success->is($payment->status ?? PaymentStatus::Pending)) {
             $event->update([
                 'processed_at' => now(),

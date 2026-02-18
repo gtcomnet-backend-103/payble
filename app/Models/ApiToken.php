@@ -18,8 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $auth_key
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- * @property-read Business $business
- *
+ * @property-read \App\Models\Business $business
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ApiToken newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ApiToken newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ApiToken query()
@@ -31,7 +30,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ApiToken whereLookupKey($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ApiToken whereMode($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ApiToken whereUpdatedAt($value)
- *
  * @mixin \Eloquent
  */
 final class ApiToken extends Model

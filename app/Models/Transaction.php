@@ -19,28 +19,29 @@ use RuntimeException;
 /**
  * @property int $id
  * @property int $business_id
+ * @property string $source_type
+ * @property int $source_id
  * @property int $amount
+ * @property int $fee
  * @property Currency $currency
  * @property TransactionStatus $status
  * @property string $reference
  * @property PaymentMode $mode
- * @property PaymentChannel|null $channel
- * @property int $fee
  * @property array<array-key, mixed>|null $metadata
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- * @property-read Business $business
- * @property-read \Illuminate\Database\Eloquent\Collection<int, LedgerEntry> $ledgerEntries
+ * @property PaymentChannel $channel
+ * @property-read \App\Models\Business $business
+ * @property-read mixed $gross_amount
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\LedgerEntry> $ledgerEntries
  * @property-read int|null $ledger_entries_count
- * @property-read PaymentIntent|null $paymentIntent
- *
+ * @property-read Model|\Eloquent $source
  * @method static \Database\Factories\TransactionFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereAmount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereBusinessId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereChannel($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereCurrency($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereFee($value)
@@ -48,9 +49,10 @@ use RuntimeException;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereMetadata($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereMode($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereReference($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereSourceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereSourceType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereUpdatedAt($value)
- *
  * @mixin \Eloquent
  */
 final class Transaction extends Model
@@ -110,19 +112,14 @@ final class Transaction extends Model
         return (bool) $this->update(['status' => $target]);
     }
 
-    public function paymentIntent(): BelongsTo
-    {
-        return $this->belongsTo(PaymentIntent::class, 'source_id');
-    }
-
     protected function grossAmount(): Attribute
     {
-        return Attribute::get(fn() => $this->amount + $this->fee);
+        return Attribute::get(fn () => $this->amount + $this->fee);
     }
-
 
     protected function channel(): Attribute
     {
+        // TODO: make the transaction aware of the channel
         return Attribute::get(function () {
             if ($this->source_type === PaymentIntent::class) {
                 return $this->source?->attempts()->where('status', 'success')->first()?->channel;

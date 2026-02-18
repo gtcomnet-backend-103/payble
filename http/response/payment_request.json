@@ -2,9 +2,9 @@
   "data": {
     "amount": 100000,
     "currency": "NGN",
-    "transaction_date": "2026-02-17T08:45:01+00:00",
+    "transaction_date": "2026-02-18T15:31:52+00:00",
     "status": "pending",
-    "reference": "D4pg9CvysOOHXE",
+    "reference": "J_Mc2di7mgAjaz",
     "mode": "live",
     "metadata": {
       "order_id": "12345"
@@ -12,10 +12,15 @@
     "channel": null,
     "fee": 0,
     "customer": {
+      "id": 1,
+      "business_id": 1,
       "first_name": null,
       "last_name": null,
       "email": "customer@example.com",
-      "phone": null
+      "phone": null,
+      "metadata": null,
+      "created_at": "2026-02-18T13:44:54.000000Z",
+      "updated_at": "2026-02-18T13:44:54.000000Z"
     }
   }
 }

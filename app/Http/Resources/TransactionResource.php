@@ -28,11 +28,11 @@ final class TransactionResource extends JsonResource
             'metadata' => $this->metadata,
             'channel' => $this->channel?->value,
             'fee' => $this->fee,
-            'customer' => [
-                'first_name' => $this->paymentIntent->customer->first_name,
-                'last_name' => $this->paymentIntent->customer->last_name,
-                'email' => $this->paymentIntent->customer->email,
-                'phone' => $this->paymentIntent->customer->phone,
+            'customer' => $this->source?->customer ?? [
+                'first_name' => $this->source->customer->first_name,
+                'last_name' => $this->source->customer->last_name,
+                'email' => $this->source->customer->email,
+                'phone' => $this->source->customer->phone,
             ],
         ];
     }

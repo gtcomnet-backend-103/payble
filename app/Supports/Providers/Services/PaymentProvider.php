@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Supports\Providers\Services;
 
+use App\Enums\FeeChannel;
 use App\Enums\PaymentChannel;
 use App\Models\Provider;
 use App\Supports\Providers\Contracts\ProviderAdapter;
@@ -12,6 +13,7 @@ use App\Supports\Providers\DataTransferObjects\PaymentValidateDTO;
 use App\Supports\Providers\DataTransferObjects\ProviderResponse;
 use App\Supports\Providers\DataTransferObjects\WebhookPayloadDTO;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 final readonly class PaymentProvider
 {
@@ -60,7 +62,7 @@ final readonly class PaymentProvider
         return $this->resolveAdapter($provider)->validate($providerReference, $dto);
     }
 
-    public function getFee(Provider $provider, PaymentChannel $channel, int $amount): int
+    public function getFee(Provider $provider, FeeChannel $channel, int $amount): int
     {
         return $this->resolveAdapter($provider)->getFee($channel, $amount);
     }

@@ -19,8 +19,8 @@ final class ValidatePaymentController
     {
         try {
             $attempt = $this->validatePayment->execute($reference, $request->validated());
-            $attempt->load(['paymentIntent.customer']);
-            $payment = $attempt->paymentIntent;
+            $attempt->load(['intent.customer']);
+            $payment = $attempt->Intent;
 
             if ($attempt->status->validating()) {
                 return response()->json([
@@ -44,6 +44,7 @@ final class ValidatePaymentController
                 'authorization' => $attempt->authorization,
             ]);
         } catch (Exception $e) {
+            report($e);
             return response()->json([
                 'message' => $e->getMessage(),
             ], 400);

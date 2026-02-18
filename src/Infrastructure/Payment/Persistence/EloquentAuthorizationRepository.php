@@ -7,7 +7,6 @@ namespace Infrastructure\Payment\Persistence;
 use App\Models\AuthorizationAttempt as EloquentAttempt;
 use App\Models\PaymentIntent as EloquentPayment;
 use DateTimeImmutable;
-use Domain\Payment\Contracts\AuthorizationRepositoryInterface;
 use Domain\Payment\Entities\AuthorizationAttempt;
 use Domain\Payment\Entities\PaymentRequest;
 use Support\ValueObjects\Ulid;

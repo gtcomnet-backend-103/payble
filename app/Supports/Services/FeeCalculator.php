@@ -2,24 +2,29 @@
 
 declare(strict_types=1);
 
-namespace App\Domains\Payments\Actions;
+namespace App\Supports\Services;
 
-use App\Contracts\IdempotentAction;
+use App\Domains\Payouts\Contracts\FeeCalculatorInterface;
+use App\Enums\Currency;
+use App\Enums\FeeChannel;
 use App\Enums\PaymentChannel;
 use App\Models\FeeConfig;
-use App\Models\PaymentIntent;
+use Illuminate\Support\Facades\Context;
 
-final class ResolvePaymentFee implements IdempotentAction
+final class FeeCalculator implements FeeCalculatorInterface
 {
     /**
-     * Resolve the fee for a payment attempt.
+     * Calculate the fee for a payout amount.
+     * Payouts currently use the BankTransfer channel by default.
      */
-    public function execute(PaymentIntent $paymentIntent, PaymentChannel $channel): int
+    public function calculate(int $amount, Currency $currency, FeeChannel $channel): int
     {
-        // 1. Check for business-specific fee
+        $businessId = Context::get('business_id');
+
+        // 1. Check for business-specific fee for Bank Transfer
         $config = FeeConfig::query()
-            ->where('business_id', $paymentIntent->business_id)
-            ->where('channel', $channel->value)
+            ->where('business_id', $businessId)
+            ->where('channel', $channel)
             ->where('is_active', true)
             ->first();
 
@@ -27,17 +32,17 @@ final class ResolvePaymentFee implements IdempotentAction
         if (! $config) {
             $config = FeeConfig::query()
                 ->whereNull('business_id')
-                ->where('channel', $channel->value)
+                ->where('channel', $channel)
                 ->where('is_active', true)
                 ->first();
         }
 
         if (! $config) {
-            return 0; // Or a default global fallback if required
+            return 0;
         }
 
         // Calculate fee: (amount * percentage / 100) + fixed_amount
-        $calculatedFee = (int) (($paymentIntent->amount * $config->percentage) / 100) + $config->fixed_amount;
+        $calculatedFee = (int) (($amount * $config->percentage) / 100) + $config->fixed_amount;
 
         // Apply min/max constraints
         if ($calculatedFee < $config->min_fee) {

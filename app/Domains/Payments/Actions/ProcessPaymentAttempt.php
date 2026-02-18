@@ -37,7 +37,7 @@ final class ProcessPaymentAttempt implements IdempotentAction
         }
 
         $provider = $attempt->provider;
-        $payment = $attempt->paymentIntent;
+        $payment = $attempt->intent;
 
         // 2. External Provider Verification (Keep outside the DB transaction to avoid long locks)
         try {

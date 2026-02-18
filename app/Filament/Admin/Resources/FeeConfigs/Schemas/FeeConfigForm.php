@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Admin\Resources\FeeConfigs\Schemas;
 
+use App\Enums\FeeChannel;
 use App\Enums\PaymentChannel;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -19,7 +20,7 @@ final class FeeConfigForm
                 Select::make('business_id')
                     ->relationship('business', 'name'),
                 Select::make('channel')
-                    ->options(PaymentChannel::class)
+                    ->options(FeeChannel::class)
                     ->required(),
                 TextInput::make('min_fee')
                     ->required()

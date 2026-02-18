@@ -40,7 +40,6 @@ final readonly class CreateRecipient
             'verified_at' => now()
         ]);
 
-        $business->bankAccount()->associate($bankAccount);
         $business->save();
         return $bankAccount;
     }

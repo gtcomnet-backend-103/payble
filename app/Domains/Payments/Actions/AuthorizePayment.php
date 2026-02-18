@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Payments\Actions;
 
 use App\Contracts\IdempotentAction;
-use App\Enums\AuthorizationStatus;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Models\AuthorizationAttempt;
@@ -13,16 +12,16 @@ use App\Models\PaymentIntent;
 use App\Supports\Providers\DataTransferObjects\CustomerDTO;
 use App\Supports\Providers\DataTransferObjects\PaymentAuthorizeDTO;
 use App\Supports\Providers\Facades\PaymentProvider;
+use App\Supports\Services\TransactionAttemptService;
 use Exception;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Throwable;
 
-final class AuthorizePayment implements IdempotentAction
+final readonly class AuthorizePayment implements IdempotentAction
 {
     public function __construct(
-        private readonly ResolvePaymentFee $resolvePaymentFee,
-        private readonly ProcessPaymentAttempt $processPaymentAttempt,
+        private ProcessPaymentAttempt $processPaymentAttempt,
+        private TransactionAttemptService $attemptService
     ) {}
 
     /**
@@ -46,7 +45,8 @@ final class AuthorizePayment implements IdempotentAction
             $this->validatePreconditions($payment, $channel);
 
             // 3. Handle Idempotency
-            $existingAttempt = AuthorizationAttempt::where('payment_intent_id', $payment->id)
+            $existingAttempt = AuthorizationAttempt::where('intent_id', $payment->getKey())
+                ->where('intent_type', $payment->getMorphClass())
                 ->where('channel', $channel)
                 ->first();
 
@@ -75,7 +75,6 @@ final class AuthorizePayment implements IdempotentAction
                 metadata: $payment->metadata ?? [], // Keep metadata for actual custom data
                 channelDetails: match ($channel) {
                     PaymentChannel::Card => $data['card'] ?? [],
-                    PaymentChannel::BankTransfer => [], // No details needed for bank transfer init
                     default => []
                 }
             );
@@ -83,14 +82,11 @@ final class AuthorizePayment implements IdempotentAction
             $providerResponse = PaymentProvider::authorize($provider, $dto);
 
             // 7. Persist adapter response and transition state
-            $attempt->update([
-                'provider_reference' => $providerResponse->providerReference,
-                'status' => $providerResponse->status,
-                'raw_response' => array_merge($providerResponse->rawResponse, [
-                    'bank_details' => $providerResponse->bankDetails?->toArray(),
-                ]),
-                'metadata' => array_merge($attempt->metadata ?? [], $providerResponse->metadata),
+            $rawResponse = array_merge($providerResponse->rawResponse, [
+                'bank_details' => $providerResponse->bankDetails?->toArray(),
             ]);
+            $metadata = array_merge($attempt->metadata ?? [], $providerResponse->metadata);
+            $attempt = $this->attemptService->saveAttemptResponse($attempt, $providerResponse->status, $rawResponse, $metadata);
 
             if ($attempt->status->isFinal()) {
                 $this->processPaymentAttempt->execute($attempt);
@@ -115,28 +111,18 @@ final class AuthorizePayment implements IdempotentAction
      */
     public function createAttempt(PaymentIntent $payment, PaymentChannel $channel): AuthorizationAttempt
     {
-        $provider = PaymentProvider::provide($channel->value);
-        $feeAmount = $this->resolvePaymentFee->execute($payment, $channel);
-
-        $amount = $payment->amount;
-
-        $providerFee = PaymentProvider::getFee(
-            $provider,
-            $channel,
-            $amount
-        );
-
-        return AuthorizationAttempt::create([
-            'provider_reference' => Str::uuid()->toString(),
-            'payment_intent_id' => $payment->id,
-            'provider_id' => $provider->id,
-            'channel' => $channel,
-            'status' => AuthorizationStatus::Pending,
-            'fee' => $feeAmount,
-            'provider_fee' => $providerFee,
-            'amount' => $amount,
-            'currency' => $payment->currency->value,
-            'idempotency_key' => "payment_auth_{$payment->id}_{$channel->value}",
-        ]);
+        try {
+            $provider = PaymentProvider::provide($channel->value);
+            return $this->attemptService->createAttempt(
+                $payment->amount,
+                $payment->currency,
+                $channel->toFeeChannelEnum(),
+                $payment,
+                $provider
+            );
+        } catch (Exception $exception) {
+            report($exception);
+            throw new Exception('failed to attempt authorization');
+        }
     }
 }

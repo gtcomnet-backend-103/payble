@@ -6,6 +6,7 @@ namespace App\Supports\Providers\Adapters;
 
 use App\Domains\Payouts\DataTransferObjects\PayoutTransferData;
 use App\Enums\AuthorizationStatus;
+use App\Enums\FeeChannel;
 use App\Enums\PaymentChannel;
 use App\Supports\Providers\Contracts\ProviderAdapter;
 use App\Supports\Providers\DataTransferObjects\PaymentAuthorizeDTO;
@@ -45,7 +46,7 @@ final class TestAdapter implements ProviderAdapter
         throw new RuntimeException('TestPayoutAdapter cannot validate payments.');
     }
 
-    public function getFee(PaymentChannel $channel, int $amount): int
+    public function getFee(FeeChannel $channel, int $amount): int
     {
         return 0;
     }

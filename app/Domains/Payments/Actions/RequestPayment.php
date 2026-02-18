@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Payments\Actions;
 
 use App\Contracts\IdempotentAction;
+use App\Domains\Payouts\Contracts\LedgerPostingServiceInterface;
 use App\Enums\Currency;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentMode;
@@ -22,6 +23,10 @@ use Throwable;
 
 final class RequestPayment implements IdempotentAction
 {
+    public function __construct(private LedgerPostingServiceInterface $ledgerPostingService)
+    {
+    }
+
     /**
      * @param array{
      *   amount: int,
@@ -54,14 +59,15 @@ final class RequestPayment implements IdempotentAction
             $customer = $this->resolveCustomer($business, $data);
 
             $currency = Currency::tryFrom($data['currency'] ?? 'NGN') ?? Currency::NGN;
+            $amount = $data['amount'] ?? 0;
             $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? ($data['mode'] ?? 'test')) ?? PaymentMode::Test;
             $bearer = FeeBearer::tryFrom($data['bearer'] ?? 'account') ?? FeeBearer::ACCOUNT;
-            $reference = $data['reference'] ?? 'TRX_' . Str::random(10);
+            $reference = $data['reference'] ?? 'TRX_'.Str::random(10);
 
             $paymentIntent = PaymentIntent::create([
                 'business_id' => $business->id,
                 'customer_id' => $customer->id,
-                'amount' => $data['amount'],
+                'amount' => $amount,
                 'currency' => $currency,
                 'reference' => $reference,
                 'status' => PaymentStatus::Initiated,
@@ -70,16 +76,7 @@ final class RequestPayment implements IdempotentAction
                 'metadata' => $data['metadata'] ?? [],
             ]);
 
-            return $paymentIntent->transaction()->create([
-                'business_id' => $business->id,
-                'reference' => $paymentIntent->reference,
-                'currency' => $currency,
-                'amount' => $paymentIntent->amount,
-                'fee' => 0,
-                'status' => TransactionStatus::Pending,
-                'mode' => $mode,
-                'metadata' => $data['metadata'] ?? [],
-            ]);
+            return $this->ledgerPostingService->recordTransaction($paymentIntent);
         });
     }
 

@@ -1,7 +1,13 @@
 {
-  "message": "Maximum execution time of 30 seconds exceeded",
-  "exception": "Symfony\\Component\\ErrorHandler\\Error\\FatalError",
-  "file": "D:\\Codebank\\payable\\vendor\\guzzlehttp\\guzzle\\src\\Handler\\CurlHandler.php",
-  "line": 44,
-  "trace": []
+  "status": "success",
+  "amount": 100000,
+  "reference": "oZX5Xo3Hkic5iI",
+  "customer": {
+    "first_name": null,
+    "last_name": null,
+    "email": "customer@example.com",
+    "phone": null
+  },
+  "fee": 1000,
+  "authorization": []
 }

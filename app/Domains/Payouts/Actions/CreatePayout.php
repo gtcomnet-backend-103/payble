@@ -6,24 +6,26 @@ namespace App\Domains\Payouts\Actions;
 
 use App\Contracts\IdempotentAction;
 use App\Domains\Payouts\Contracts\FeeCalculatorInterface;
+use App\Domains\Payouts\Contracts\LedgerPostingServiceInterface;
 use App\Domains\Payouts\Contracts\LedgerServiceInterface;
 use App\Domains\Payouts\NewPayoutEvent;
-use App\Enums\Currency;
+use App\Enums\FeeChannel;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
 use App\Models\Business;
 use App\Models\Payout;
+use Exception;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
 final readonly class CreatePayout implements IdempotentAction
 {
     public function __construct(
+        private LedgerPostingServiceInterface $ledgerPostingService,
         private LedgerServiceInterface $ledgerService,
         private FeeCalculatorInterface $feeCalculator
     ) {}
@@ -65,25 +67,24 @@ final readonly class CreatePayout implements IdempotentAction
             $metadata = $data['metadata'] ?? [];
             $metadata['account'] = $bankAccount->only(['account_name', 'account_number', 'bank_code']);
 
+            $account = $this->ledgerService->receivable($bankAccount->business, $currency->value);
+            $balance = $this->ledgerService->getBalance($account);
 
-            $balance = $bankAccount->ledgerEntries()
-                ->selectRaw("
-                    SUM(
-                        CASE
-                            WHEN direction = 'debit' THEN -amount
-                            ELSE amount
-                        END
-                    ) as balance
-                ")->value('balance');
+            /**
+             * A negative ledger balance indicates a liability.
+             * It represents funds owed to the business that will be settled via payout.
+             */
+            if ($balance >= 0) {
+                throw new Exception('No available balance for this account');
+            }
 
-            dd($balance);
+            $fee = $this->feeCalculator->calculate($balance, $currency, FeeChannel::Payout);
 
-            $fee = $this->feeCalculator->calculate($data['amount'], $currency);
             $payout = $bankAccount->payouts()->create([
                 'business_id' => $business->id,
                 'originator_id' => $user->getKey(),
                 'originator_type' => $user->getMorphClass(),
-                'amount' => $data['amount'],
+                'amount' => abs($balance),
                 'fee' => $fee,
                 'currency' => $currency,
                 'reference' => $reference,
@@ -94,8 +95,8 @@ final readonly class CreatePayout implements IdempotentAction
                 'metadata' => $metadata,
             ]);
 
-            $transaction = $this->ledgerService->recordPayoutTransaction($payout);
-            $this->ledgerService->reserve($transaction);
+            $transaction = $this->ledgerPostingService->recordTransaction($payout);
+            $this->ledgerPostingService->reserve($transaction);
 
             $payout->update(['status' => PayoutStatus::Pending]);
 

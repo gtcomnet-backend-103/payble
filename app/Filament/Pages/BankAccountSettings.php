@@ -19,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use JetBrains\PhpStorm\NoReturn;
 
 final class BankAccountSettings extends Page
@@ -81,6 +82,7 @@ final class BankAccountSettings extends Page
             app(CreateRecipient::class)->execute($business, ['currency' => Currency::NGN->value, ...$this->data]);
             Notification::make()->title('Account updated')->success()->send();
         } catch (Exception $exception) {
+            Log::error($exception);
             Notification::make()->title($exception->getMessage())->danger()->send();
         }
     }

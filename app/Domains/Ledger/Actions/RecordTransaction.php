@@ -7,9 +7,12 @@ namespace App\Domains\Ledger\Actions;
 use App\Contracts\Recordable;
 use App\Enums\TransactionStatus;
 use App\Models\Transaction;
+use App\Supports\Services\FeeCalculator;
 
 final class RecordTransaction
 {
+    public function __construct() {}
+
     /**
      * Create a transaction record from a Recordable source.
      */
@@ -23,7 +26,7 @@ final class RecordTransaction
             'source_id' => $source->id,
             'reference' => $data->reference,
             'amount' => $data->amount,
-            'fee' => $data->fee,
+            'fee' => 0,
             'currency' => $data->currency,
             'status' => TransactionStatus::Pending,
             'mode' => $data->mode,

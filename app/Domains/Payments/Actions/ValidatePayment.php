@@ -10,15 +10,16 @@ use App\Models\AuthorizationAttempt;
 use App\Models\PaymentIntent;
 use App\Supports\Providers\DataTransferObjects\PaymentValidateDTO;
 use App\Supports\Providers\Facades\PaymentProvider;
+use App\Supports\Services\TransactionAttemptService;
 use Exception;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Throwable;
 
 final class ValidatePayment implements IdempotentAction
 {
     public function __construct(
-        private ProcessPaymentAttempt $processPaymentAttempt
+        private readonly ProcessPaymentAttempt $processPaymentAttempt,
+        private TransactionAttemptService $transactionAttemptService,
     ) {}
 
     /**
@@ -41,39 +42,15 @@ final class ValidatePayment implements IdempotentAction
                 throw new Exception('Payment has already been authorized.', 400);
             }
 
-            // 3. Find latest pending attempt
-            // We need the *latest* one to get the provider reference and context.
-            // It might be Pending, PendingOtp, PendingPin, etc.
-            $latestAttempt = AuthorizationAttempt::where('payment_intent_id', $payment->id)
-                ->validating()
-                ->latest()
-                ->first();
-
-            if (! $latestAttempt) {
-                throw new Exception('No pending authorization attempt found.', 400);
-            }
-
-            // 4. Create a NEW attempt for auditability of this validation step
+            // 3. Create a NEW attempt for auditability of this validation step
             // We copy provider details from the latest attempt.
-            $newAttempt = AuthorizationAttempt::create([
-                'provider_reference' => $latestAttempt->provider_reference, // Use same provider ref
-                'payment_intent_id' => $payment->id,
-                'provider_id' => $latestAttempt->provider_id,
-                'channel' => $latestAttempt->channel,
-                'status' => $latestAttempt->status,
-                'fee' => $latestAttempt->fee,
-                'provider_fee' => $latestAttempt->provider_fee,
-                'amount' => $latestAttempt->amount,
-                'currency' => $latestAttempt->currency,
-                'idempotency_key' => "payment_validate_{$payment->id}_".Str::uuid(),
-                'metadata' => array_merge($latestAttempt->metadata ?? [], ['validation_step' => true]),
-            ]);
+            $attempt = $this->transactionAttemptService->continueAttempt($payment);
 
-            // 5. Call Provider Validate
+            // 4. Call Provider Validate
             $providerResponse = PaymentProvider::validate(
-                $newAttempt->provider,
-                $newAttempt->provider_reference,
-                match ($newAttempt->status) {
+                $attempt->provider,
+                $attempt->provider_reference,
+                match ($attempt->status) {
                     AuthorizationStatus::PendingPin => new PaymentValidateDTO(pin: $data['pin'] ?? null),
                     AuthorizationStatus::PendingOtp => new PaymentValidateDTO(otp: $data['otp'] ?? null),
                     AuthorizationStatus::PendingPhone => new PaymentValidateDTO(phone: $data['phone'] ?? null),
@@ -81,21 +58,20 @@ final class ValidatePayment implements IdempotentAction
                 }
             );
 
-            // 6. Update the NEW attempt with result
-            $newAttempt->update([
-                'status' => $providerResponse->status,
-                'raw_response' => array_merge($providerResponse->rawResponse, [
-                    'bank_details' => $providerResponse->bankDetails?->toArray(),
-                ]),
-                'metadata' => array_merge($newAttempt->metadata ?? [], $providerResponse->metadata),
+            // 5. Update the NEW attempt with result
+            $rawResponse = array_merge($providerResponse->rawResponse, [
+                'bank_details' => $providerResponse->bankDetails?->toArray(),
             ]);
+            $metadata = array_merge($attempt->metadata ?? [], $providerResponse->metadata);
+            $attempt = $this->transactionAttemptService->saveAttemptResponse($attempt, $providerResponse->status, $rawResponse, $metadata);
 
-            // 7. If success, finalize the payment
-            if ($newAttempt->status->is(AuthorizationStatus::Success)) {
-                $this->processPaymentAttempt->execute($newAttempt);
+
+            // 6. If success, finalize the payment
+            if ($attempt->status->is(AuthorizationStatus::Success)) {
+                $this->processPaymentAttempt->execute($attempt);
             }
 
-            return $newAttempt;
+            return $attempt;
         });
     }
 }

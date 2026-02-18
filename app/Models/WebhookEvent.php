@@ -18,7 +18,6 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $feedback
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|WebhookEvent newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|WebhookEvent newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|WebhookEvent query()
@@ -32,7 +31,6 @@ use Illuminate\Database\Eloquent\Model;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|WebhookEvent whereRawPayload($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|WebhookEvent whereReceivedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|WebhookEvent whereUpdatedAt($value)
- *
  * @mixin \Eloquent
  */
 final class WebhookEvent extends Model

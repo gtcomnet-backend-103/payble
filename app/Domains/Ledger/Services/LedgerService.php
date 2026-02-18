@@ -43,19 +43,24 @@ final class LedgerService
         );
     }
 
+    public function receivable(?Model $business, string $currency, PaymentMode $mode = PaymentMode::Live): Account
+    {
+        return $this->getAccount($business, AccountType::RECEIVABLE, $currency, $mode);
+    }
+
     public function businessReceivable(Model $business, string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount($business, AccountType::BUSINESS_WALLET, $currency, $mode);
+        return $this->receivable($business, $currency, $mode);
     }
 
     public function providerReceivable(Model $provider, string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount($provider, AccountType::PROVIDER_CLEARING, $currency, $mode);
+        return $this->receivable($provider, $currency, $mode);
     }
 
     public function platformReceivable(string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount(null, AccountType::PLATFORM_CLEARING, $currency, $mode);
+        return $this->receivable(null, $currency, $mode);
     }
 
     public function platformRevenue(string $currency, PaymentMode $mode = PaymentMode::Live): Account

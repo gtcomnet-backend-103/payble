@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Contracts\Recordable;
+use App\Domains\Ledger\DataTransferObjects\TransactionData;
 use App\Enums\Currency;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentMode;
@@ -12,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use RuntimeException;
 
@@ -20,6 +23,7 @@ use RuntimeException;
  * @property int $business_id
  * @property int $customer_id
  * @property int $amount
+ * @property int $amount_paid
  * @property Currency $currency
  * @property string $reference
  * @property PaymentStatus $status
@@ -28,18 +32,19 @@ use RuntimeException;
  * @property array<array-key, mixed>|null $metadata
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- * @property-read \Illuminate\Database\Eloquent\Collection<int, AuthorizationAttempt> $attempts
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\AuthorizationAttempt> $attempts
  * @property-read int|null $attempts_count
- * @property-read Business $business
- * @property-read Customer $customer
- * @property-read \Illuminate\Database\Eloquent\Collection<int, Transaction> $transactions
+ * @property-read \App\Models\Business $business
+ * @property-read \App\Models\Customer $customer
+ * @property-read \App\Models\Transaction|null $transaction
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Transaction> $transactions
  * @property-read int|null $transactions_count
- *
  * @method static \Database\Factories\PaymentIntentFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent whereAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent whereAmountPaid($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent whereBearer($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent whereBusinessId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent whereCreatedAt($value)
@@ -51,10 +56,9 @@ use RuntimeException;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent whereReference($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|PaymentIntent whereUpdatedAt($value)
- *
  * @mixin \Eloquent
  */
-final class PaymentIntent extends Model
+final class PaymentIntent extends Model implements Recordable
 {
     use HasFactory;
 
@@ -86,9 +90,9 @@ final class PaymentIntent extends Model
         return $this->hasMany(Transaction::class);
     }
 
-    public function attempts(): HasMany
+    public function attempts(): MorphMany
     {
-        return $this->hasMany(AuthorizationAttempt::class);
+        return $this->morphMany(AuthorizationAttempt::class, 'intent');
     }
 
     public function casts(): array
@@ -120,5 +124,18 @@ final class PaymentIntent extends Model
     public function transaction(): MorphOne
     {
         return $this->morphOne(Transaction::class, 'source');
+    }
+
+    public function toTransactionData(): TransactionData
+    {
+        return new TransactionData(
+            businessId: $this->business_id,
+            reference: $this->reference,
+            amount: $this->amount,
+            fee: 0,
+            currency: $this->currency,
+            mode: $this->mode,
+            metadata: $this->metadata,
+        );
     }
 }

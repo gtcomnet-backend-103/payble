@@ -12,16 +12,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property int $id
  * @property int $ledger_account_id
- * @property int $transaction_id
+ * @property int|null $transaction_id
  * @property string|null $reference
  * @property int $amount
  * @property EntryDirection $direction
- * @property int $ledger_batch_id
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- * @property-read Account $account
- * @property-read Transaction $transaction
- *
+ * @property int|null $ledger_batch_id
+ * @property-read \App\Models\Account $account
+ * @property-read \App\Models\LedgerBatch|null $batch
+ * @property-read \App\Models\Transaction|null $transaction
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LedgerEntry newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LedgerEntry newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LedgerEntry query()
@@ -30,10 +30,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LedgerEntry whereDirection($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LedgerEntry whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LedgerEntry whereLedgerAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|LedgerEntry whereLedgerBatchId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LedgerEntry whereReference($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LedgerEntry whereTransactionId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|LedgerEntry whereUpdatedAt($value)
- *
  * @mixin \Eloquent
  */
 final class LedgerEntry extends Model

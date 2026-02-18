@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::create('authorization_attempts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('payment_intent_id')->constrained()->cascadeOnDelete();
+            $table->morphs('intent');
             $table->foreignId('provider_id')->constrained()->cascadeOnDelete();
             $table->string('channel');
             $table->string('provider_reference');
@@ -24,13 +24,10 @@ return new class extends Migration
             $table->integer('provider_fee')->default(0);
             $table->integer('amount');
             $table->string('currency');
-            $table->string('idempotency_key')->unique();
             $table->json('raw_request')->nullable();
             $table->json('raw_response')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();
-
-            $table->index(['payment_intent_id', 'channel']);
         });
     }
 

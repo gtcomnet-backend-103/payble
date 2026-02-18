@@ -6,6 +6,7 @@ namespace App\Enums;
 
 enum AccountType: string
 {
+    case RECEIVABLE = 'receivable';
     case CUSTOMER_WALLET = 'customer_wallet';
     case CUSTOMER_HOLDS = 'customer_holds';
     case BUSINESS_WALLET = 'business_wallet';

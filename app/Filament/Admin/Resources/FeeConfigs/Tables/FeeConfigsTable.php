@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Admin\Resources\FeeConfigs\Tables;
 
+use App\Enums\FeeChannel;
 use App\Enums\PaymentChannel;
 use App\Models\FeeConfig;
 use Filament\Actions\EditAction;
@@ -26,8 +27,9 @@ final class FeeConfigsTable
                     ->badge()
                     ->formatStateUsing(fn ($state) => Str::of($state->value)->replace('_', ' '))
                     ->icon(fn ($state) => match ($state) {
-                        PaymentChannel::Card => Heroicon::CreditCard,
-                        PaymentChannel::BankTransfer => Heroicon::Banknotes
+                        FeeChannel::CARD => Heroicon::CreditCard,
+                        FeeChannel::BANK_TRANSFER => Heroicon::Banknotes,
+                        FeeChannel::Payout => Heroicon::OutlinedArrowTrendingUp
                     })
                     ->searchable(),
                 TextColumn::make('min_fee')

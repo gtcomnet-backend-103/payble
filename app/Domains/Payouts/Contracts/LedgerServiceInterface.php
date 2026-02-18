@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Domains\Payouts\Contracts;
 
-use App\Models\Payout;
-use App\Models\Transaction;
+use App\Enums\PaymentMode;
+use App\Models\Account;
+use Illuminate\Database\Eloquent\Model;
 
 interface LedgerServiceInterface
 {
-    public function recordPayoutTransaction(Payout $payout): Transaction;
+    public function receivable(Model $model, string $currency, PaymentMode $mode = PaymentMode::Live): Account;
 
-    public function postTransaction(Transaction $transaction): void;
-    public function reserve(Transaction $transaction): void;
-    public function reverse(Transaction $transaction): void;
+    /**
+     * Get the current balance of an account from the snapshot table.
+     */
+    public function getBalance(Account $account): int;
 }

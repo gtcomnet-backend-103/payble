@@ -20,21 +20,46 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property int $id
  * @property int $business_id
  * @property int|null $provider_id
+ * @property string $originator_type
+ * @property int $originator_id
+ * @property string|null $provider_reference
  * @property int $amount
+ * @property int $fee
  * @property Currency $currency
  * @property PaymentMode $mode
  * @property PayoutStatus $status
  * @property string $reference
  * @property bool $requires_otp
  * @property array<array-key, mixed>|null $metadata
- * @property int $fee
- * @property-read int $net_amount
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- * @property-read Business $business
- * @property-read Provider|null $provider
- * @property-read Transaction|null $transaction
- *
+ * @property int|null $bank_account_id
+ * @property-read \App\Models\BankAccount|null $bankAccount
+ * @property-read \App\Models\Business $business
+ * @property-read mixed $net_amount
+ * @property-read Model|\Eloquent $originator
+ * @property-read \App\Models\Provider|null $provider
+ * @property-read \App\Models\Transaction|null $transaction
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereBankAccountId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereBusinessId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereCurrency($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereFee($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereMetadata($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereMode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereOriginatorId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereOriginatorType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereProviderId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereProviderReference($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereReference($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereRequiresOtp($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereUpdatedAt($value)
  * @mixin \Eloquent
  */
 final class Payout extends Model implements Recordable

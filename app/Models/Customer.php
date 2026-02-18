@@ -19,12 +19,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<array-key, mixed>|null $metadata
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- * @property-read Business $business
- * @property-read \Illuminate\Database\Eloquent\Collection<int, Account> $ledgerAccounts
- * @property-read int|null $accounts_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, PaymentIntent> $paymentIntents
+ * @property-read \App\Models\Business $business
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Account> $ledgerAccounts
+ * @property-read int|null $ledger_accounts_count
+ * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
+ * @property-read int|null $notifications_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\PaymentIntent> $paymentIntents
  * @property-read int|null $payment_intents_count
- *
  * @method static \Database\Factories\CustomerFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Customer newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Customer newQuery()
@@ -38,7 +39,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Customer whereMetadata($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Customer wherePhone($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Customer whereUpdatedAt($value)
- *
  * @mixin \Eloquent
  */
 final class Customer extends Model

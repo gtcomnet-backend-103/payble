@@ -9,6 +9,7 @@ use App\Domains\Payouts\DataTransferObjects\PayoutTransferData;
 use App\Enums\AuthorizationStatus;
 use App\Enums\Currency;
 use App\Enums\PaymentChannel;
+use App\Enums\FeeChannel;
 use App\Supports\Providers\Contracts\ProviderAdapter;
 use App\Supports\Providers\DataTransferObjects\BankDetailsDTO;
 use App\Supports\Providers\DataTransferObjects\PaymentAuthorizeDTO;
@@ -202,7 +203,7 @@ final class PaystackAdapter implements ProviderAdapter
         );
     }
 
-    public function getFee(PaymentChannel $channel, int $amount): int
+    public function getFee(FeeChannel $channel, int $amount): int
     {
         return 1000;
     }

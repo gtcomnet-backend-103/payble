@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\FeeChannel;
 use App\Enums\PaymentChannel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property int $id
  * @property int|null $business_id
- * @property PaymentChannel $channel
+ * @property FeeChannel $channel
  * @property string $currency
  * @property int $min_fee
  * @property int|null $max_fee
@@ -21,8 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property bool $is_active
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- * @property-read Business|null $business
- *
+ * @property-read \App\Models\Business|null $business
  * @method static \Database\Factories\FeeConfigFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig newQuery()
@@ -38,7 +38,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig whereMinFee($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig wherePercentage($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|FeeConfig whereUpdatedAt($value)
- *
  * @mixin \Eloquent
  */
 final class FeeConfig extends Model
@@ -63,7 +62,7 @@ final class FeeConfig extends Model
     public function casts(): array
     {
         return [
-            'channel' => PaymentChannel::class,
+            'channel' => FeeChannel::class,
             'min_fee' => 'integer',
             'max_fee' => 'integer',
             'percentage' => 'decimal:2',

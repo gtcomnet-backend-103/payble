@@ -4,24 +4,25 @@ declare(strict_types=1);
 
 namespace App\Supports\Services;
 
+use App\Contracts\Recordable;
 use App\Domains\Ledger\Actions\PostToLedger;
 use App\Domains\Ledger\Actions\RecordPayoutLedgerPostings;
 use App\Domains\Ledger\Actions\RecordTransaction;
 use App\Domains\Ledger\Actions\ReversePayoutLedgerPostings;
-use App\Domains\Payouts\Contracts\LedgerServiceInterface;
+use App\Domains\Payouts\Contracts\LedgerPostingServiceInterface;
 use App\Models\Payout;
 use App\Models\Transaction;
 
-final class LedgerPayoutService implements LedgerServiceInterface
+final class LedgerPayoutPostingService implements LedgerPostingServiceInterface
 {
     public function __construct(
-        private RecordTransaction $recordTransaction,
-        private PostToLedger $reservePostToLedger,
-        private RecordPayoutLedgerPostings $recordPayoutLedgerPostings,
-        private ReversePayoutLedgerPostings $reversePayoutLedgerPostings,
+        private readonly RecordTransaction $recordTransaction,
+        private readonly PostToLedger $reservePostToLedger,
+        private readonly RecordPayoutLedgerPostings $recordPayoutLedgerPostings,
+        private readonly ReversePayoutLedgerPostings $reversePayoutLedgerPostings,
     ) {}
 
-    public function recordPayoutTransaction(Payout $payout): Transaction
+    public function recordTransaction(Recordable $payout): Transaction
     {
         return $this->recordTransaction->execute($payout);
     }

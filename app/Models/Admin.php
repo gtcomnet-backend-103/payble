@@ -19,7 +19,11 @@ use Spatie\OneTimePasswords\Models\Concerns\HasOneTimePasswords;
  * @property string|null $remember_token
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
- *
+ * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
+ * @property-read int|null $notifications_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\OneTimePasswords\Models\OneTimePassword> $oneTimePasswords
+ * @property-read int|null $one_time_passwords_count
+ * @method static \Database\Factories\AdminFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Admin newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Admin newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Admin query()
@@ -31,7 +35,6 @@ use Spatie\OneTimePasswords\Models\Concerns\HasOneTimePasswords;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Admin wherePassword($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Admin whereRememberToken($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Admin whereUpdatedAt($value)
- *
  * @mixin \Eloquent
  */
 final class Admin extends \Illuminate\Foundation\Auth\User implements FilamentUser

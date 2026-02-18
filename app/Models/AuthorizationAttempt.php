@@ -5,18 +5,23 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\AuthorizationStatus;
-use App\Enums\PaymentChannel;
+use App\Enums\FeeChannel;
+use Eloquent;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use RuntimeException;
 
 /**
  * @property int $id
- * @property int $payment_intent_id
+ * @property string $intent_type
+ * @property int $intent_id
  * @property int $provider_id
- * @property PaymentChannel $channel
+ * @property FeeChannel $channel
  * @property string $provider_reference
  * @property AuthorizationStatus $status
  * @property \Carbon\CarbonImmutable|null $completed_at
@@ -24,7 +29,6 @@ use RuntimeException;
  * @property int $provider_fee
  * @property int $amount
  * @property string $currency
- * @property string $idempotency_key
  * @property array<array-key, mixed>|null $raw_request
  * @property array<array-key, mixed>|null $raw_response
  * @property array<array-key, mixed>|null $metadata
@@ -33,40 +37,39 @@ use RuntimeException;
  * @property-read string|null $action
  * @property-read array $authorization
  * @property-read bool $completed
- * @property-read PaymentIntent $paymentIntent
- * @property-read Provider $provider
- *
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt newModelQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt pending()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt validating()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereAmount($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereChannel($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereCompletedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereCreatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereCurrency($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereFee($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereIdempotencyKey($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereMetadata($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt wherePaymentIntentId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereProviderFee($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereProviderId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereProviderReference($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereRawRequest($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereRawResponse($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereStatus($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|AuthorizationAttempt whereUpdatedAt($value)
- *
- * @mixin \Eloquent
+ * @property-read Model|\Eloquent $intent
+ * @property-read \App\Models\Provider $provider
+ * @method static Builder<static>|AuthorizationAttempt newModelQuery()
+ * @method static Builder<static>|AuthorizationAttempt newQuery()
+ * @method static Builder<static>|AuthorizationAttempt pending()
+ * @method static Builder<static>|AuthorizationAttempt query()
+ * @method static Builder<static>|AuthorizationAttempt validating()
+ * @method static Builder<static>|AuthorizationAttempt whereAmount($value)
+ * @method static Builder<static>|AuthorizationAttempt whereChannel($value)
+ * @method static Builder<static>|AuthorizationAttempt whereCompletedAt($value)
+ * @method static Builder<static>|AuthorizationAttempt whereCreatedAt($value)
+ * @method static Builder<static>|AuthorizationAttempt whereCurrency($value)
+ * @method static Builder<static>|AuthorizationAttempt whereFee($value)
+ * @method static Builder<static>|AuthorizationAttempt whereId($value)
+ * @method static Builder<static>|AuthorizationAttempt whereIntentId($value)
+ * @method static Builder<static>|AuthorizationAttempt whereIntentType($value)
+ * @method static Builder<static>|AuthorizationAttempt whereMetadata($value)
+ * @method static Builder<static>|AuthorizationAttempt whereProviderFee($value)
+ * @method static Builder<static>|AuthorizationAttempt whereProviderId($value)
+ * @method static Builder<static>|AuthorizationAttempt whereProviderReference($value)
+ * @method static Builder<static>|AuthorizationAttempt whereRawRequest($value)
+ * @method static Builder<static>|AuthorizationAttempt whereRawResponse($value)
+ * @method static Builder<static>|AuthorizationAttempt whereStatus($value)
+ * @method static Builder<static>|AuthorizationAttempt whereUpdatedAt($value)
+ * @mixin Eloquent
  */
 final class AuthorizationAttempt extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'payment_intent_id',
+        'intent_id',
+        'intent_type',
         'provider_id',
         'channel',
         'provider_reference',
@@ -83,8 +86,8 @@ final class AuthorizationAttempt extends Model
     ];
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopePending($query)
     {
@@ -95,22 +98,19 @@ final class AuthorizationAttempt extends Model
         ]);
     }
 
-    /**
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    public function scopeValidating($query)
+    #[Scope]
+    protected function validating(Builder $query): Builder
     {
         return $query->whereIn('status', [
             AuthorizationStatus::PendingOtp,
             AuthorizationStatus::PendingPhone,
-            AuthorizationStatus::PendingPin, // Optimistic success handling
+            AuthorizationStatus::PendingPin,
         ]);
     }
 
-    public function paymentIntent(): BelongsTo
+    public function intent(): MorphTo
     {
-        return $this->belongsTo(PaymentIntent::class);
+        return $this->morphTo();
     }
 
     public function provider(): BelongsTo
@@ -121,7 +121,7 @@ final class AuthorizationAttempt extends Model
     public function casts(): array
     {
         return [
-            'channel' => PaymentChannel::class,
+            'channel' => FeeChannel::class,
             'status' => AuthorizationStatus::class,
             'fee' => 'integer',
             'raw_request' => 'array',
@@ -184,7 +184,7 @@ final class AuthorizationAttempt extends Model
     public function authorization(): Attribute
     {
         return Attribute::get(
-            fn (): array => $this->channel === PaymentChannel::BankTransfer
+            fn (): array => $this->channel === FeeChannel::BANK_TRANSFER
                 ? $this->raw_response['bank_details'] ?? []
                 : []
         );
