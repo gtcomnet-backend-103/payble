@@ -21,6 +21,7 @@ return new class extends Migration
             $table->boolean('is_healthy')->default(true);
             $table->json('supported_channels');
             $table->json('metadata')->nullable();
+            $table->softDeletes();
             $table->timestamps();
         });
     }

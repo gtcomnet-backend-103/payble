@@ -46,7 +46,7 @@ final class AuthorizePayout
         }
 
         $bankAccount = $payout->bankAccount;
-        $provider = $this->disbursementProvider->provider();
+        $provider = $this->disbursementProvider->provider($payout->mode);
 
         try {
             $this->disbursementProvider->transfer(

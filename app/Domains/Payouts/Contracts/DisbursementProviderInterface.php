@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Payouts\Contracts;
 
+use App\Enums\PaymentMode;
 use App\Models\Provider;
 use App\Supports\Providers\DataTransferObjects\ProviderResponse;
 
@@ -21,9 +22,10 @@ interface DisbursementProviderInterface
 
     /**
      * Get provider from db where can_payout is true
+     * @param PaymentMode|null $mode
      * @return Provider
      */
-    public function provider(): Provider;
+    public function provider(?PaymentMode $mode = null): Provider;
 
     public function verify(Provider $provider, string $reference): ProviderResponse;
 }

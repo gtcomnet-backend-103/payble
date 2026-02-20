@@ -12,20 +12,25 @@ use App\Enums\PaymentMode;
 use App\Models\Provider;
 use App\Supports\Providers\Adapters\PaystackAdapter;
 use App\Supports\Providers\DataTransferObjects\ProviderResponse;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 final readonly class DisbursementProvider implements BankAccountResolver, DisbursementProviderInterface
 {
     public function __construct(private ProviderResolver $providerResolver) {}
 
-    public function provider(): Provider
+    public function provider(?PaymentMode $mode = null): Provider
     {
         $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? PaymentMode::Test->value);
 
-        return Provider::query()
-            ->where('is_payout_enabled', true)
-            ->where('is_active', true)
-            ->where('mode', $mode)
-            ->firstOrFail();
+        try {
+            return Provider::query()
+                ->where('is_payout_enabled', true)
+                ->where('is_active', true)
+                ->where('mode', $mode)
+                ->firstOrFail();
+        }catch (ModelNotFoundException){
+            throw new ModelNotFoundException("Provider not found");
+        }
     }
 
     public function transfer(Provider $provider, string $reference, string $accountNumber, string $bankCode, int $amount): ProviderResponse

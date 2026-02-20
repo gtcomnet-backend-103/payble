@@ -20,7 +20,9 @@ final class ProvidersTable
                 TextColumn::make('name')
                     ->searchable(),
                 ToggleColumn::make('is_active')
-                    ->label('active'),
+                    ->label('Active'),
+                ToggleColumn::make('is_payout_enabled')
+                    ->label('Support Payout'),
                 IconColumn::make('is_healthy')
                     ->boolean(),
                 TextColumn::make('created_at')
