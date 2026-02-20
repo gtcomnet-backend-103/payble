@@ -44,6 +44,7 @@ Accept: application/json
     }
 }
 
+> {% client.global.set('status', response.body.action || '') %}
 >>! {{$projectRoot}}/http/response/payment_authorization_{{channel}}.json
 
 ###

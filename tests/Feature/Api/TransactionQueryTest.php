@@ -30,7 +30,12 @@ beforeEach(function () {
         'status' => PaymentStatus::Pending,
     ]);
 
-    $this->transaction = $this->payment->transaction;
+    $this->transaction = $this->payment->transaction ?? \App\Models\Transaction::factory()->create([
+        'reference' => 'REF_123',
+        'source_id' => $this->payment->id,
+        'source_type' => $this->payment->getMorphClass(),
+        'status' => \App\Enums\TransactionStatus::Pending,
+    ]);
 });
 
 it('can query a transaction by reference', function () {

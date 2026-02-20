@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Api;
 
 use App\Enums\AuthorizationStatus;
-use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Enums\TransactionStatus;
 use App\Models\AuthorizationAttempt;
@@ -41,16 +40,16 @@ it('validates a pending pin payment and transitions to pending otp', function ()
     ]);
 
     AuthorizationAttempt::create([
-        'payment_intent_id' => $payment->id,
+        'intent_id' => $payment->id,
+        'intent_type' => $payment->getMorphClass(),
         'provider_id' => $this->provider->id,
-        'channel' => PaymentChannel::Card,
+        'channel' => \App\Enums\FeeChannel::CARD,
         'status' => AuthorizationStatus::PendingPin,
         'provider_reference' => 'PROV_REF_PIN',
         'amount' => $payment->amount,
         'currency' => $payment->currency,
         'fee' => 0,
         'provider_fee' => 0,
-        'idempotency_key' => 'setup_key_pin',
     ]);
 
     // 2. Mock Paystack submit_pin response
@@ -78,7 +77,8 @@ it('validates a pending pin payment and transitions to pending otp', function ()
     // Should create a NEW attempt for the validation step
     $this->assertDatabaseCount('authorization_attempts', 2);
     $this->assertDatabaseHas('authorization_attempts', [
-        'payment_intent_id' => $payment->id,
+        'intent_id' => $payment->id,
+        'intent_type' => $payment->getMorphClass(),
         'status' => AuthorizationStatus::PendingOtp->value,
         'provider_reference' => 'PROV_REF_PIN',
     ]);
@@ -92,16 +92,16 @@ it('validates a pending phone payment and transitions to success', function () {
     ]);
 
     AuthorizationAttempt::create([
-        'payment_intent_id' => $payment->id,
+        'intent_id' => $payment->id,
+        'intent_type' => $payment->getMorphClass(),
         'provider_id' => $this->provider->id,
-        'channel' => PaymentChannel::Card,
+        'channel' => \App\Enums\FeeChannel::CARD,
         'status' => AuthorizationStatus::PendingPhone,
         'provider_reference' => 'PROV_REF_PHONE',
         'amount' => $payment->amount,
         'currency' => $payment->currency,
         'fee' => 0,
         'provider_fee' => 0,
-        'idempotency_key' => 'setup_key_phone',
     ]);
 
     // 2. Mock Paystack submit_phone response
@@ -148,16 +148,16 @@ it('validates otp and successfuly finalizes payment', function () {
     ]);
 
     AuthorizationAttempt::create([
-        'payment_intent_id' => $payment->id,
+        'intent_id' => $payment->id,
+        'intent_type' => $payment->getMorphClass(),
         'provider_id' => $this->provider->id,
-        'channel' => PaymentChannel::Card,
+        'channel' => \App\Enums\FeeChannel::CARD,
         'status' => AuthorizationStatus::PendingOtp,
         'provider_reference' => 'PROV_REF_OTP',
         'amount' => $payment->amount,
         'currency' => $payment->currency,
         'fee' => 100,
         'provider_fee' => 50,
-        'idempotency_key' => 'setup_key_otp',
     ]);
 
     // 2. Mock Paystack submit_otp success response

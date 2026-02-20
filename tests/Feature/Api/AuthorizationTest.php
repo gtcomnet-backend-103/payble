@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Enums\AuthorizationStatus;
-use App\Enums\PaymentChannel;
 use App\Enums\PaymentStatus;
 use App\Models\Business;
 use App\Models\FeeConfig;
@@ -26,14 +25,14 @@ beforeEach(function () {
     Artisan::call('payment:providers-sync');
 
     FeeConfig::create([
-        'channel' => PaymentChannel::Card,
+        'channel' => App\Enums\FeeChannel::CARD,
         'percentage' => 0,
         'fixed_amount' => 1000,
         'is_active' => true,
     ]);
 
     FeeConfig::create([
-        'channel' => PaymentChannel::BankTransfer,
+        'channel' => App\Enums\FeeChannel::BANK_TRANSFER,
         'percentage' => 0,
         'fixed_amount' => 500,
         'is_active' => true,

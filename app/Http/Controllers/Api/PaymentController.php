@@ -66,7 +66,8 @@ final class PaymentController
                 'authorization' => $attempt->authorization,
             ]);
         } catch (Exception $e) {
-            report($e);
+            \Illuminate\Support\Facades\Log::error($e->getMessage(), ['exception' => $e]);
+
             return response()->json([
                 'message' => $e->getMessage(),
             ], 400);

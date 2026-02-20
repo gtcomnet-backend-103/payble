@@ -16,7 +16,13 @@ final class LedgerTransactionManager
     public function __construct(
         private readonly LedgerService $service,
         private readonly Transaction $transaction,
+        private readonly string $batchName = 'default',
     ) {}
+
+    public function name(string $name): self
+    {
+        return new self($this->service, $this->transaction, $name);
+    }
 
     /**
      * @param  LedgerEntryDTO[]  $entries
@@ -32,7 +38,7 @@ final class LedgerTransactionManager
 
         DB::transaction(function () use ($entries) {
             // 2. Start/Retrieve Batch
-            $batch = $this->service->startBatch($this->transaction);
+            $batch = $this->service->startBatch($this->transaction, $this->batchName);
 
             // Re-fetch with lock to ensure idempotency is strictly enforced
             $lockedBatch = LedgerBatch::where('id', $batch->id)->lockForUpdate()->first();

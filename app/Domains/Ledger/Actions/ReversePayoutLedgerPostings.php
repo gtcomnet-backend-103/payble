@@ -42,13 +42,13 @@ final class ReversePayoutLedgerPostings
         $businessReserved = $this->ledgerService->getAccount($transaction->business, AccountType::BUSINESS_HOLDS, $currency, $mode);
 
         $entries = [
-            // Debit Business Wallet (Increase Balance - Refund to available)
-            LedgerEntryDTO::debit($businessWallet, $amount),
+            // Credit Business Wallet (Refund to available - Increase liability)
+            LedgerEntryDTO::credit($businessWallet, $amount),
 
-            // Credit Business Reserved (Decrease reserved balance)
-            LedgerEntryDTO::credit($businessReserved, $amount),
+            // Debit Business Reserved (Decrease reserved liability)
+            LedgerEntryDTO::debit($businessReserved, $amount),
         ];
 
-        Ledger::transaction($transaction)->entries($entries);
+        Ledger::transaction($transaction)->name('reverse')->entries($entries);
     }
 }

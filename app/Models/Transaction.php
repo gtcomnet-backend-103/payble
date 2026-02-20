@@ -8,6 +8,7 @@ use App\Enums\Currency;
 use App\Enums\PaymentChannel;
 use App\Enums\PaymentMode;
 use App\Enums\TransactionStatus;
+use Eloquent;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -31,11 +32,12 @@ use RuntimeException;
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
  * @property PaymentChannel $channel
- * @property-read \App\Models\Business $business
+ * @property-read Business $business
  * @property-read mixed $gross_amount
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\LedgerEntry> $ledgerEntries
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, LedgerEntry> $ledgerEntries
  * @property-read int|null $ledger_entries_count
- * @property-read Model|\Eloquent $source
+ * @property-read Model|Eloquent $source
+ *
  * @method static \Database\Factories\TransactionFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction newQuery()
@@ -53,6 +55,7 @@ use RuntimeException;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereSourceType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Transaction whereUpdatedAt($value)
+ *
  * @mixin \Eloquent
  */
 final class Transaction extends Model
@@ -68,6 +71,9 @@ final class Transaction extends Model
         'reference',
         'mode',
         'metadata',
+        'source_id',
+        'source_type',
+        'provider_fee',
     ];
 
     public function business(): BelongsTo
@@ -121,8 +127,8 @@ final class Transaction extends Model
     {
         // TODO: make the transaction aware of the channel
         return Attribute::get(function () {
-            if ($this->source_type === PaymentIntent::class) {
-                return $this->source?->attempts()->where('status', 'success')->first()?->channel;
+            if ($this->source instanceof PaymentIntent) {
+                return $this->source?->attempts()->where('status', \App\Enums\AuthorizationStatus::Success)->first()?->channel;
             }
 
             return null;

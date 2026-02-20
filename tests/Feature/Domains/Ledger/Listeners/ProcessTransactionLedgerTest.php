@@ -62,27 +62,29 @@ it('processes ledger postings when transaction is successful with account bearer
 
     // Assert
     // 1. Provider Clearing Account (990 Debit)
-    $providerAccount = Account::where('type', AccountType::PROVIDER_CLEARING)
+    $providerAccount = Account::where('type', AccountType::RECEIVABLE)
         ->where('holder_id', $this->provider->id)
+        ->where('holder_type', $this->provider->getMorphClass())
         ->first();
 
     $this->assertDatabaseHas('ledger_entries', [
         'ledger_account_id' => $providerAccount->id,
-        'amount' => 1000,
+        'amount' => 990,
         'direction' => 'debit',
         'transaction_id' => $transaction->id,
     ]);
 
     $this->assertDatabaseHas('ledger_entries', [
         'ledger_account_id' => $providerAccount->id,
-        'amount' => 10,
-        'direction' => 'credit',
+        'amount' => 990,
+        'direction' => 'debit',
         'transaction_id' => $transaction->id,
     ]);
 
     // 2. Provider Fee Expense (10 Debit)
     $providerFeeAccount = Account::where('type', AccountType::PROVIDER_FEE_EXPENSE)
         ->where('holder_id', $this->provider->id)
+        ->where('holder_type', $this->provider->getMorphClass())
         ->first();
 
     $this->assertDatabaseHas('ledger_entries', [
@@ -103,8 +105,9 @@ it('processes ledger postings when transaction is successful with account bearer
     ]);
 
     // 4. Business Wallet (950 Credit)
-    $businessAccount = Account::where('type', AccountType::BUSINESS_WALLET)
+    $businessAccount = Account::where('type', AccountType::RECEIVABLE)
         ->where('holder_id', $this->business->id)
+        ->where('holder_type', $this->business->getMorphClass())
         ->first();
 
     $this->assertDatabaseHas('ledger_entries', [

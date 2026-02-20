@@ -48,6 +48,11 @@ final class LedgerService
         return $this->getAccount($business, AccountType::RECEIVABLE, $currency, $mode);
     }
 
+    public function holding(?Model $business, string $currency, PaymentMode $mode): Account
+    {
+        return $this->getAccount($business, AccountType::BUSINESS_HOLDS, $currency, $mode);
+    }
+
     public function businessReceivable(Model $business, string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
         return $this->receivable($business, $currency, $mode);
@@ -85,10 +90,11 @@ final class LedgerService
      * Start a new ledger batch for a transaction.
      * Idempotency is guaranteed by unique transaction_id index.
      */
-    public function startBatch(Transaction $tx): LedgerBatch
+    public function startBatch(Transaction $tx, string $name = 'default'): LedgerBatch
     {
         return LedgerBatch::firstOrCreate([
             'transaction_id' => $tx->id,
+            'name' => $name,
         ]);
     }
 
@@ -130,21 +136,23 @@ final class LedgerService
      */
     public function incrementSnapshot(Account $account, int $amount, int $entryId): void
     {
-        DB::table('account_balances')->upsert(
-            [
+        $updated = DB::table('account_balances')
+            ->where('ledger_account_id', $account->id)
+            ->update([
+                'balance' => DB::raw("balance + {$amount}"),
+                'last_entry_id' => $entryId,
+                'updated_at' => now(),
+            ]);
+
+        if (! $updated) {
+            DB::table('account_balances')->insert([
                 'ledger_account_id' => $account->id,
                 'balance' => $amount,
                 'last_entry_id' => $entryId,
                 'created_at' => now(),
                 'updated_at' => now(),
-            ],
-            ['ledger_account_id'],
-            [
-                'balance' => DB::raw("balance + {$amount}"),
-                'last_entry_id' => $entryId,
-                'updated_at' => now(),
-            ]
-        );
+            ]);
+        }
     }
 
     /**
@@ -172,7 +180,7 @@ final class LedgerService
                 'direction' => EntryDirection::CREDIT,
             ]);
 
-            $this->incrementSnapshot($account, $amount, $entry->id);
+            $this->incrementSnapshot($account, -$amount, $entry->id);
         });
     }
 }

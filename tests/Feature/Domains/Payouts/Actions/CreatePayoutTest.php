@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\Ledger\Services\LedgerService;
 use App\Domains\Payouts\Actions\CreatePayout;
 use App\Enums\Currency;
 use App\Enums\PaymentMode;
@@ -12,6 +13,7 @@ use App\Models\BankAccount;
 use App\Models\Business;
 use App\Models\Payout;
 use App\Models\Transaction;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
@@ -20,14 +22,42 @@ beforeEach(function () {
     $this->bankAccount = BankAccount::factory()->create([
         'business_id' => $this->business->id,
     ]);
-    $this->business->bankAccount()->associate($this->bankAccount);
-    $this->business->save();
+    $this->bankAccount->business()->associate($this->business);
+    $this->bankAccount->save();
+
+    $this->ledgerService = app(LedgerService::class);
+    $this->businessAccount = $this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test);
+
+    // Fund account for general balance check
+    $fundingTx = Transaction::factory()->create([
+        'business_id' => $this->business->id,
+        'amount' => 1000000,
+        'reference' => 'FUND_' . Str::random(10),
+        'source_type' => 'funding',
+        'source_id' => $this->business->id,
+    ]);
+    $this->ledgerService->post($fundingTx, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $this->businessAccount, 1000000);
+
+    // Seed earnings for "yesterday"
+    $yesterday = now()->subDay();
+    $this->travelTo($yesterday);
+
+    $earningTx = Transaction::factory()->create([
+        'business_id' => $this->business->id,
+        'amount' => 50000,
+        'reference' => 'EARN_' . Str::random(10),
+        'source_type' => 'payment',
+        'source_id' => 1,
+    ]);
+    $this->ledgerService->post($earningTx, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $this->businessAccount, 50000);
+
+    $this->travelBack();
+
     $this->action = app(CreatePayout::class);
 });
 
-it('creates a payout successfully', function () {
+it('creates a payout successfully using daily earnings', function () {
     $data = [
-        'amount' => 50000,
         'currency' => 'NGN',
         'bank_code' => '058',
         'account_number' => '0123456789',
@@ -59,7 +89,6 @@ it('creates a payout successfully', function () {
 
 it('sets requires_otp flag correctly', function () {
     $data = [
-        'amount' => 10000,
         'currency' => 'NGN',
         'bank_code' => '058',
         'account_number' => '0123456789',
@@ -75,3 +104,38 @@ it('sets requires_otp flag correctly', function () {
 it('validates required fields', function () {
     $this->action->execute($this->business, $this->admin, []);
 })->throws(ValidationException::class);
+
+it('throws exception when no earnings are found for the date', function () {
+    $data = [
+        'date' => now()->format('Y-m-d'), // Today has no earnings (just funding)
+        'currency' => 'NGN',
+    ];
+
+    $this->action->execute($this->business, $this->admin, $data);
+})->throws(ValidationException::class, 'No earnings found for the specified date');
+
+it('calculates payout amount correctly for a specific date', function () {
+    $specificDate = now()->subDays(5);
+    $this->travelTo($specificDate);
+
+    // Seed 3 earnings for the same date
+    for ($i = 0; $i < 3; $i++) {
+        $earningTx = Transaction::factory()->create([
+            'business_id' => $this->business->id,
+            'amount' => 10000,
+            'reference' => "EARN_SPECIFIC_{$i}",
+            'source_type' => 'payment',
+            'source_id' => $i + 100,
+        ]);
+        $this->ledgerService->post($earningTx, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $this->businessAccount, 10000);
+    }
+
+    $this->travelBack();
+
+    $payout = $this->action->execute($this->business, $this->admin, [
+        'date' => $specificDate->format('Y-m-d'),
+        'currency' => 'NGN',
+    ]);
+
+    expect($payout->amount)->toBe(30000);
+});

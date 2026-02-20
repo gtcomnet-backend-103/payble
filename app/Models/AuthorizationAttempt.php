@@ -37,8 +37,9 @@ use RuntimeException;
  * @property-read string|null $action
  * @property-read array $authorization
  * @property-read bool $completed
- * @property-read Model|\Eloquent $intent
- * @property-read \App\Models\Provider $provider
+ * @property-read Model|Eloquent $intent
+ * @property-read Provider $provider
+ *
  * @method static Builder<static>|AuthorizationAttempt newModelQuery()
  * @method static Builder<static>|AuthorizationAttempt newQuery()
  * @method static Builder<static>|AuthorizationAttempt pending()
@@ -61,6 +62,7 @@ use RuntimeException;
  * @method static Builder<static>|AuthorizationAttempt whereRawResponse($value)
  * @method static Builder<static>|AuthorizationAttempt whereStatus($value)
  * @method static Builder<static>|AuthorizationAttempt whereUpdatedAt($value)
+ *
  * @mixin Eloquent
  */
 final class AuthorizationAttempt extends Model
@@ -76,7 +78,6 @@ final class AuthorizationAttempt extends Model
         'status',
         'fee',
         'currency',
-        'idempotency_key',
         'raw_request',
         'raw_response',
         'metadata',
@@ -95,16 +96,6 @@ final class AuthorizationAttempt extends Model
             AuthorizationStatus::Pending,
             AuthorizationStatus::PendingTransfer,
             AuthorizationStatus::Success, // Optimistic success handling
-        ]);
-    }
-
-    #[Scope]
-    protected function validating(Builder $query): Builder
-    {
-        return $query->whereIn('status', [
-            AuthorizationStatus::PendingOtp,
-            AuthorizationStatus::PendingPhone,
-            AuthorizationStatus::PendingPin,
         ]);
     }
 
@@ -188,5 +179,15 @@ final class AuthorizationAttempt extends Model
                 ? $this->raw_response['bank_details'] ?? []
                 : []
         );
+    }
+
+    #[Scope]
+    protected function validating(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            AuthorizationStatus::PendingOtp,
+            AuthorizationStatus::PendingPhone,
+            AuthorizationStatus::PendingPin,
+        ]);
     }
 }

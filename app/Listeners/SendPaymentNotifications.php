@@ -16,7 +16,7 @@ final class SendPaymentNotifications implements ShouldQueue
     {
         $transaction = $event->transaction;
         $business = $transaction->business;
-        $paymentIntent = $transaction->paymentIntent;
+        $paymentIntent = $transaction->source;
         $customer = $paymentIntent->customer;
 
         // 1. Notify Business (Email)

@@ -33,7 +33,7 @@ final class TransactionController
             ], 404);
         }
 
-        $transaction->load(['paymentIntent.customer']);
+        $transaction->load(['source.customer']);
 
         return new TransactionResource($transaction);
     }

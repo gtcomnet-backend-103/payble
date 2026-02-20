@@ -9,7 +9,6 @@ use App\Models\Business;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
-use Filament\Support\Enums\Size;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -31,7 +30,7 @@ final class BusinessesTable
                 TextColumn::make('balance')
                     ->state(function (Business $record) {
                         $service = app(LedgerService::class);
-                        $wallet = $service->businessReceivable($record, 'NGN');
+                        $wallet = $service->receivable($record, 'NGN');
 
                         return Number::currency($service->getBalance($wallet) / 100, $wallet->currency);
                     }),
@@ -55,7 +54,7 @@ final class BusinessesTable
             ->recordActions([
                 EditAction::make(),
                 Action::make('verify')
-                    ->hidden(fn(Business $record) => $record->verified_at)
+                    ->hidden(fn (Business $record) => $record->verified_at)
                     ->requiresConfirmation()
                     ->icon(Heroicon::OutlinedShieldCheck)
                     ->color('primary')

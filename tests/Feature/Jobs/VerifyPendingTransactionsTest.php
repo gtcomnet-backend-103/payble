@@ -45,15 +45,15 @@ it('processes old pending attempts', function () {
     ]);
 
     $attempt = AuthorizationAttempt::create([
-        'payment_intent_id' => $payment->id,
+        'intent_id' => $payment->id,
+        'intent_type' => $payment->getMorphClass(),
         'provider_id' => $this->provider->id,
-        'channel' => PaymentChannel::Card,
+        'channel' => \App\Enums\FeeChannel::CARD,
         'provider_reference' => 'OLD_REF',
         'status' => AuthorizationStatus::Pending,
         'amount' => 1000,
         'currency' => 'NGN',
         'fee' => 10,
-        'idempotency_key' => 'key_1',
         'updated_at' => now()->subMinutes(6), // Older than 5 mins
         'completed_at' => null,
     ]);
@@ -88,15 +88,15 @@ it('ignores recent attempts', function () {
     ]);
 
     $attempt = AuthorizationAttempt::create([
-        'payment_intent_id' => $payment->id,
+        'intent_id' => $payment->id,
+        'intent_type' => $payment->getMorphClass(),
         'provider_id' => $this->provider->id,
-        'channel' => PaymentChannel::Card,
+        'channel' => \App\Enums\FeeChannel::CARD,
         'provider_reference' => 'RECENT_REF',
         'status' => AuthorizationStatus::Pending,
         'amount' => 1000,
         'currency' => 'NGN',
         'fee' => 10,
-        'idempotency_key' => 'key_2',
         'updated_at' => now()->subMinutes(1), // Too recent
         'completed_at' => null,
     ]);
@@ -122,15 +122,15 @@ it('ignores completed attempts', function () {
     ]);
 
     $attempt = AuthorizationAttempt::create([
-        'payment_intent_id' => $payment->id,
+        'intent_id' => $payment->id,
+        'intent_type' => $payment->getMorphClass(),
         'provider_id' => $this->provider->id,
-        'channel' => PaymentChannel::Card,
+        'channel' => \App\Enums\FeeChannel::CARD,
         'provider_reference' => 'COMPLETED_REF',
         'status' => AuthorizationStatus::Success,
         'amount' => 1000,
         'currency' => 'NGN',
         'fee' => 10,
-        'idempotency_key' => 'key_3',
         'updated_at' => now()->subMinutes(10),
         'completed_at' => now(), // Already completed
     ]);

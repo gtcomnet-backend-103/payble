@@ -9,12 +9,12 @@ use App\Domains\Payouts\Contracts\FeeCalculatorInterface;
 use App\Domains\Payouts\Contracts\LedgerPostingServiceInterface;
 use App\Domains\Payouts\Contracts\LedgerServiceInterface;
 use App\Domains\Payouts\NewPayoutEvent;
+use App\Enums\EntryDirection;
 use App\Enums\FeeChannel;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
 use App\Models\Business;
 use App\Models\Payout;
-use Exception;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -32,7 +32,7 @@ final readonly class CreatePayout implements IdempotentAction
 
     /**
      * @param array{
-     *   amount: int,
+     *   date?: string,
      *   currency: string,
      *   bank_code: string,
      *   account_number: string,
@@ -48,13 +48,16 @@ final readonly class CreatePayout implements IdempotentAction
     public function execute(Business $business, Authenticatable $user, array $data): Payout
     {
         $data = Validator::make($data, [
+            'date' => ['sometimes', 'date_format:Y-m-d'],
+            'currency' => ['required', 'string', 'size:3'],
             'requires_otp' => ['sometimes', 'boolean'],
             'metadata' => ['sometimes', 'array'],
+            'reference' => ['sometimes', 'string', 'max:100'],
         ])->validate();
 
         if (! $bankAccount = $business->bankAccount()->first()) {
             throw ValidationException::withMessages([
-                'reference' => 'No bank account specified for this business',
+                'bank_account' => 'No bank account specified for this business',
             ]);
         }
 
@@ -67,24 +70,41 @@ final readonly class CreatePayout implements IdempotentAction
             $metadata = $data['metadata'] ?? [];
             $metadata['account'] = $bankAccount->only(['account_name', 'account_number', 'bank_code']);
 
-            $account = $this->ledgerService->receivable($bankAccount->business, $currency->value);
+            $account = $this->ledgerService->receivable($business, $currency->value, $mode);
+
+            // Calculate daily earnings (excluding funding/internal adjustments)
+            $date = $data['date'] ?? now()->subDay()->format('Y-m-d');
+            $earnings = $account->entries()
+                ->where('direction', EntryDirection::CREDIT)
+                ->whereDate('created_at', $date)
+                ->whereHas('transaction', fn ($q) => $q->where('source_type', '!=', 'funding'))
+                ->sum('amount');
+
+            if ($earnings <= 0) {
+                throw ValidationException::withMessages([
+                    'date' => "No earnings found for the specified date: {$date}",
+                ]);
+            }
+
+            $requestedAmount = (int) $earnings;
             $balance = $this->ledgerService->getBalance($account);
 
             /**
-             * A negative ledger balance indicates a liability.
-             * It represents funds owed to the business that will be settled via payout.
+             * Check if the business has enough balance for this payout.
              */
-            if ($balance >= 0) {
-                throw new Exception('No available balance for this account');
+            if ($balance >= 0 || abs($balance) < $requestedAmount) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Insufficient balance for this payout',
+                ]);
             }
 
-            $fee = $this->feeCalculator->calculate($balance, $currency, FeeChannel::Payout);
+            $fee = $this->feeCalculator->calculate($requestedAmount, $currency, FeeChannel::Payout);
 
             $payout = $bankAccount->payouts()->create([
                 'business_id' => $business->id,
                 'originator_id' => $user->getKey(),
                 'originator_type' => $user->getMorphClass(),
-                'amount' => abs($balance),
+                'amount' => $requestedAmount,
                 'fee' => $fee,
                 'currency' => $currency,
                 'reference' => $reference,

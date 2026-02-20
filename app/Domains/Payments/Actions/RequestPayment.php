@@ -10,7 +10,6 @@ use App\Enums\Currency;
 use App\Enums\FeeBearer;
 use App\Enums\PaymentMode;
 use App\Enums\PaymentStatus;
-use App\Enums\TransactionStatus;
 use App\Models\Business;
 use App\Models\Customer;
 use App\Models\PaymentIntent;
@@ -23,9 +22,7 @@ use Throwable;
 
 final class RequestPayment implements IdempotentAction
 {
-    public function __construct(private LedgerPostingServiceInterface $ledgerPostingService)
-    {
-    }
+    public function __construct(private readonly LedgerPostingServiceInterface $ledgerPostingService) {}
 
     /**
      * @param array{

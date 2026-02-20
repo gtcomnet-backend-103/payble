@@ -59,7 +59,6 @@ it('receives and processes a successful provider webhook', function () {
         'channel' => 'card',
     ]);
 
-
     $attempt = app(AuthorizePayment::class)->createAttempt($payment, PaymentChannel::Card);
     $attempt->update([
         'status' => AuthorizationStatus::Pending,
@@ -205,15 +204,15 @@ it('ignores already processed payments', function () {
     ]);
 
     $attempt = AuthorizationAttempt::create([
-        'payment_intent_id' => $payment->id,
+        'intent_id' => $payment->id,
+        'intent_type' => $payment->getMorphClass(),
         'provider_id' => $this->provider->id,
-        'channel' => PaymentChannel::Card,
+        'channel' => App\Enums\FeeChannel::CARD,
         'provider_reference' => 'PAYSTACK_REF_SUCCESS',
         'status' => AuthorizationStatus::Success,
         'currency' => 'NGN',
         'amount' => 1000,
         'fee' => 20,
-        'idempotency_key' => 'IDEM_KEY_ALREADY_PROCESSED',
     ]);
 
     $payload = [

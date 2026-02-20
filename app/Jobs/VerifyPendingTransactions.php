@@ -26,7 +26,7 @@ final class VerifyPendingTransactions implements ShouldQueue
         $attempts = AuthorizationAttempt::query()
             ->whereNull('completed_at')
             ->where('updated_at', '<', now()->subMinutes(5))
-            ->whereHas('paymentIntent', function ($query) {
+            ->whereHas('intent', function ($query) {
                 $query->where('status', '!=', PaymentStatus::Success);
             })
             ->cursor();

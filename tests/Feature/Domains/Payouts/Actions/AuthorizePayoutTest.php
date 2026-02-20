@@ -17,6 +17,7 @@ use App\Models\Provider;
 use App\Models\Transaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
@@ -33,8 +34,8 @@ beforeEach(function () {
     $this->bankAccount = BankAccount::factory()->create([
         'business_id' => $this->business->id,
     ]);
-    $this->business->bankAccount()->associate($this->bankAccount);
-    $this->business->save();
+
+    config(['app.payment_mode' => 'test']);
 
     // Fund business account with sufficient balance
     $ledgerService = app(LedgerService::class);
@@ -43,18 +44,18 @@ beforeEach(function () {
     // Create a dummy transaction for funding
     $fundingTx = Transaction::factory()->create([
         'business_id' => $this->business->id,
-        'amount' => 1000000, // 1M kobo = 10,000 NGN
-        'reference' => 'FUND_TEST',
-        'source_type' => 'funding',
+        'amount' => 10000000, // 100k NGN
+        'reference' => 'FUND_' . Str::random(10),
+        'source_type' => 'payment',
         'source_id' => $this->business->id,
     ]);
 
     // Post funding entry
     $platformClearing = $ledgerService->platformReceivable('NGN', PaymentMode::Test);
     $batch = $ledgerService->startBatch($fundingTx, 'test_funding');
-    $ledgerService->post($fundingTx, $businessAccount, $platformClearing, 1000000);
+    $ledgerService->post($fundingTx, $platformClearing, $businessAccount, 10000000);
 
-    $this->disbursementProvider = $this->mock(\App\Domains\Payouts\Contracts\DisbursementProviderInterface::class);
+    $this->disbursementProvider = $this->mock(App\Domains\Payouts\Contracts\DisbursementProviderInterface::class);
     $this->disbursementProvider->shouldReceive('provider')->andReturn($this->provider)->byDefault();
 
     $this->createPayout = app(CreatePayout::class);
@@ -64,9 +65,9 @@ beforeEach(function () {
 it('authorizes a payout successfully in test mode', function () {
     Event::fake([PayoutAuthorized::class]);
 
-    // Create payout
+    // Create payout for today's funding
     $payout = $this->createPayout->execute($this->business, $this->admin, [
-        'amount' => 10000,
+        'date' => now()->format('Y-m-d'),
         'currency' => Currency::NGN->value,
     ]);
 
@@ -77,8 +78,8 @@ it('authorizes a payout successfully in test mode', function () {
     // Authorize payout
     $this->disbursementProvider->shouldReceive('transfer')
         ->once()
-        ->andReturn(new \App\Supports\Providers\DataTransferObjects\ProviderResponse(
-            status: \App\Enums\AuthorizationStatus::Success,
+        ->andReturn(new App\Supports\Providers\DataTransferObjects\ProviderResponse(
+            status: App\Enums\AuthorizationStatus::Success,
             providerReference: 'PROV_REF_123'
         ));
 
@@ -94,7 +95,7 @@ it('validates payout status before authorization', function () {
     Event::fake();
 
     $payout = $this->createPayout->execute($this->business, $this->admin, [
-        'amount' => 10000,
+        'date' => now()->format('Y-m-d'),
         'currency' => Currency::NGN->value,
     ]);
 
@@ -107,17 +108,17 @@ it('validates payout status before authorization', function () {
 
 it('handles authorization failure gracefully', function () {
     $payout = $this->createPayout->execute($this->business, $this->admin, [
-        'amount' => 10000,
+        'date' => now()->format('Y-m-d'),
         'currency' => Currency::NGN->value,
     ]);
 
     $payout->refresh();
 
     // Mock DisbursementProviderInterface instead of ProviderResolver
-    $mockP = Mockery::mock(\App\Domains\Payouts\Contracts\DisbursementProviderInterface::class);
+    $mockP = Mockery::mock(App\Domains\Payouts\Contracts\DisbursementProviderInterface::class);
     $mockP->shouldReceive('provider')->andReturn($this->provider);
     $mockP->shouldReceive('transfer')->andThrow(new Exception('Provider failure'));
-    $this->instance(\App\Domains\Payouts\Contracts\DisbursementProviderInterface::class, $mockP);
+    $this->instance(App\Domains\Payouts\Contracts\DisbursementProviderInterface::class, $mockP);
 
     try {
         $this->authorizePayout->execute($payout);
@@ -134,7 +135,7 @@ it('prevents concurrent authorization attempts', function () {
     Event::fake([PayoutAuthorized::class]);
 
     $payout = $this->createPayout->execute($this->business, $this->admin, [
-        'amount' => 10000,
+        'date' => now()->format('Y-m-d'),
         'currency' => Currency::NGN->value,
     ]);
 
@@ -143,8 +144,8 @@ it('prevents concurrent authorization attempts', function () {
     // First authorization
     $this->disbursementProvider->shouldReceive('transfer')
         ->once()
-        ->andReturn(new \App\Supports\Providers\DataTransferObjects\ProviderResponse(
-            status: \App\Enums\AuthorizationStatus::Success,
+        ->andReturn(new App\Supports\Providers\DataTransferObjects\ProviderResponse(
+            status: App\Enums\AuthorizationStatus::Success,
             providerReference: 'PROV_REF_CONC'
         ));
 

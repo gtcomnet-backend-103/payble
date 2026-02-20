@@ -9,7 +9,6 @@ use App\Domains\Payouts\Actions\ProcessPayout;
 use App\Domains\Payouts\Contracts\DisbursementProviderInterface;
 use App\Enums\AuthorizationStatus;
 use App\Enums\Currency;
-use App\Enums\PaymentChannel;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
 use App\Models\Admin;
@@ -17,9 +16,11 @@ use App\Models\BankAccount;
 use App\Models\Business;
 use App\Models\FeeConfig;
 use App\Models\Provider;
+use App\Models\Transaction;
 use App\Supports\Providers\DataTransferObjects\ProviderResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Str;
 
 use function Pest\Laravel\mock;
 
@@ -37,13 +38,13 @@ beforeEach(function () {
         'account_name' => 'Test Account',
         'currency' => Currency::NGN->value,
     ]);
-    $this->business->bankAccount()->associate($bankAccount);
-    $this->business->save();
+    $bankAccount->business()->associate($this->business);
+    $bankAccount->save();
     $this->bankAccount = $bankAccount;
 
     FeeConfig::factory()->create([
         'business_id' => null,
-        'channel' => PaymentChannel::BankTransfer->value,
+        'channel' => App\Enums\FeeChannel::Payout->value,
         'currency' => Currency::NGN->value,
         'percentage' => 1.0, // 1%
         'fixed_amount' => 5000, // 50.00
@@ -68,25 +69,31 @@ beforeEach(function () {
 it('completes the full payout lifecycle', function () {
     // 1. Setup: Seed Business Wallet with 1,000,000 units (10,000.00)
     $initialAmount = 1000000;
-    $this->ledgerService->issueInternalCredit($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test), $initialAmount);
+    $businessAccount = $this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test);
+    $fundingTx = Transaction::factory()->create([
+        'business_id' => $this->business->id,
+        'amount' => $initialAmount,
+        'reference' => 'SEED_' . Str::random(10),
+        'source_type' => 'payment',
+        'source_id' => $this->business->id,
+    ]);
+    $this->ledgerService->post($fundingTx, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $businessAccount, $initialAmount);
 
-    // 2. Create Payout (Draft -> Pending)
     /** @var CreatePayout $createAction */
     $createAction = app(CreatePayout::class);
-    $payoutAmount = 100000; // 1,000.00
 
     $payout = $createAction->execute($this->business, $this->admin, [
-        'amount' => $payoutAmount,
+        'date' => now()->format('Y-m-d'),
         'currency' => Currency::NGN->value,
-        'reference' => 'PAY-'.Str::random(10),
+        'reference' => 'PAY-' . Str::random(10),
     ]);
 
     expect($payout->status)->toBe(PayoutStatus::Pending)
-        ->and($payout->amount)->toBe($payoutAmount)
-        ->and($payout->fee)->toBe(10000); // 1% of 100000 is 1000, but min_fee is 10000
+        ->and($payout->amount)->toBe($initialAmount)
+        ->and($payout->fee)->toBe(15000); // 1% of 1000000 is 10000 + 5000 fixed fee
 
-    // Verify funds reserved (Available: 1,000,000 - 100,000 = 900,000)
-    expect($this->ledgerService->getBalance($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)))->toBe(900000);
+    // Verify funds reserved (Available: -1,000,000 + 1,000,000 = 0)
+    expect($this->ledgerService->getBalance($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)))->toBe(0);
 
     // 3. Authorize Payout (Pending -> Processing)
     // Mock provider transfer
@@ -112,27 +119,29 @@ it('completes the full payout lifecycle', function () {
 
     expect($payout->status)->toBe(PayoutStatus::Success);
 
-    // Verify ledger finalized (Holds should be empty for this specific transaction)
-    // Actually, balance checks are easier on available wallet
-    expect($this->ledgerService->getBalance($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)))->toBe(900000);
+    // Verify ledger finalized
+    expect($this->ledgerService->getBalance($this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)))->toBe(0);
 });
 
 it('reverses funds on payout failure', function () {
     // 1. Setup Balance
     $initialAmount = 1000000;
-    $this->ledgerService->issueInternalCredit(
-        $this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test),
-        $initialAmount
-    );
+    $businessAccount = $this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test);
+    $fundingTx = Transaction::factory()->create([
+        'business_id' => $this->business->id,
+        'amount' => $initialAmount,
+        'reference' => 'SEED_' . Str::random(10),
+        'source_type' => 'payment',
+        'source_id' => $this->business->id,
+    ]);
+    $this->ledgerService->post($fundingTx, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $businessAccount, $initialAmount);
 
-    $payoutAmount = 100000;
     /** @var CreatePayout $createAction */
     $createAction = app(CreatePayout::class);
     $payout = $createAction->execute($this->business, $this->admin, [
-        'amount' => $payoutAmount,
+        'date' => now()->format('Y-m-d'),
         'currency' => Currency::NGN->value,
     ]);
-
 
     // Transition to Processing
     $payout->update(['status' => PayoutStatus::Processing, 'provider_id' => Provider::first()->id]);
@@ -149,5 +158,5 @@ it('reverses funds on payout failure', function () {
         ->and($this->ledgerService->getBalance(
             $this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test)
         ))
-        ->toBe(1000000);
+        ->toBe(-1000000);
 });

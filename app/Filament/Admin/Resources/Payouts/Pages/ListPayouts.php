@@ -27,7 +27,7 @@ final class ListPayouts extends ListRecords
                         $createAction->execute(
                             Business::find($data['business_id']),
                             $user,
-                            []
+                            $data
                         );
                     } catch (Exception $exception) {
                         Notification::make()->title($exception->getMessage())->danger()->send();

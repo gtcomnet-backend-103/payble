@@ -7,7 +7,6 @@ namespace App\Domains\Ledger\Actions;
 use App\Domains\Ledger\DataTransferObjects\LedgerEntry;
 use App\Domains\Ledger\Facades\Ledger;
 use App\Domains\Ledger\Services\LedgerService;
-use App\Enums\AccountType;
 use App\Models\Transaction;
 
 final readonly class PostToLedger
@@ -26,19 +25,12 @@ final readonly class PostToLedger
         $currency = $transaction->currency;
         $mode = $transaction->mode;
 
-        $businessAvailable = $this->ledgerService->businessReceivable($business, $currency->value, $mode);
-        $businessReserved = $this->ledgerService->getAccount(
-            $business,
-            AccountType::BUSINESS_HOLDS,
-            $currency->value,
-            $mode
-        );
+        $businessAvailable = $this->ledgerService->receivable($business, $currency->value, $mode);
+        $businessReserved = $this->ledgerService->holding($business, $currency->value, $mode);
 
-        $this->ledgerService->post(
-            $transaction,
-            $businessReserved,    // DEBIT reserved (increase)
-            $businessAvailable,   // CREDIT available (decrease)
-            $amount
-        );
+        Ledger::transaction($transaction)->name('reserve')->entries([
+            LedgerEntry::debit($businessAvailable, $amount),
+            LedgerEntry::credit($businessReserved, $amount),
+        ]);
     }
 }
