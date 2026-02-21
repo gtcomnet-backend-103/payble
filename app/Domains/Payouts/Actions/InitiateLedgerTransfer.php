@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final readonly class InitiateLedgerTransfer
 {
@@ -36,6 +37,8 @@ final readonly class InitiateLedgerTransfer
      *   reference?: string,
      *   metadata?: array<string, mixed>
      * } $data
+     *
+     * @throws Throwable
      */
     public function execute(Business $business, Authenticatable $user, array $data): Payout
     {

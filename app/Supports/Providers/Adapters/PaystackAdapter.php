@@ -261,7 +261,7 @@ final class PaystackAdapter implements ProviderAdapter
 
         return new ProviderResponse(
             status: $mappedStatus,
-            providerReference: $data['reference'] ?? $dto->reference, // Paystack ref or our ref?
+            providerReference: $dto->reference, // Paystack ref or our ref?
             // Paystack returns a transfer_code and reference.
             // Usually we store transfer_code as providerReference? Or reference?
             // "reference" in response matches request reference if provided.

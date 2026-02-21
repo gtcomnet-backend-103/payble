@@ -63,18 +63,72 @@ Accept: application/json
 > {% client.global.set('status', response.body.action) %}
 >>! {{$projectRoot}}/http/response/payment_validation_{{status}}.json
 
-### 5. Get Transaction Details
+###
+# @name Get single transaction
 # Retrieve the full transaction record once it is completed or for status polling
 GET {{baseUrl}}/api/transactions/{{reference}}
 Authorization: Bearer {{apiKey}}
 Accept: application/json
 
-### 6. Get Current User/Business
+###
+# @name Get current business
 GET {{baseUrl}}/api/user
 Authorization: Bearer {{apiKey}}
 Accept: application/json
 
-### 7. Provider Webhook
+###
+# @name Get Banks
+GET {{base_url}}/api/utils/banks
+Authorization: Bearer {{apiKey}}
+Accept: application/json
+
+###
+# @name Register Recipient
+# Register a bank account for transfers
+POST {{baseUrl}}/api/recipients
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "account_number": "0000000000",
+    "bank_code": "058",
+    "currency": "NGN"
+}
+
+> {% client.global.set('recipient_id', response.body.data.id) %}
+
+###
+# @name Initiate Transfer
+# Create a new transfer request
+POST {{baseUrl}}/api/transfers
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "bank_account_id": {{recipient_id}},
+    "amount": 50000,
+    "reference": "transfer_{{$random.alphanumeric(10)}}",
+    "metadata": {
+        "reason": "Business settlement"
+    }
+}
+
+> {% client.global.set('transfer_reference', response.body.data.reference) %}
+
+###
+# @name Authorize Transfer
+# Finalize and send the transfer to the provider
+POST {{baseUrl}}/api/transfers/{{transfer_reference}}/authorize
+Authorization: Bearer {{apiKey}}
+Content-Type: application/json
+Accept: application/json
+
+{}
+
+
+### Provider Webhook
 # Simulate a webhook from a provider (e.g. Paystack)
 # Note: You may need to disable CSRF or satisfy signature requirements for this to work locally.
 POST {{baseUrl}}/api/webhooks/paystack

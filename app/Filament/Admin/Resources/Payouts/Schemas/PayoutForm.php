@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Filament\Admin\Resources\Payouts\Schemas;
 
 use App\Enums\Currency;
@@ -11,7 +13,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
 
-class PayoutForm
+final class PayoutForm
 {
     public static function configure(Schema $schema): Schema
     {
@@ -22,45 +24,12 @@ class PayoutForm
                     ->required(),
                 Select::make('currency')
                     ->options(Currency::class)
-                    ->dehydrateStateUsing(fn(Currency $state) => $state->value)
+                    ->dehydrateStateUsing(fn (Currency $state) => $state->value)
                     ->required(),
                 DatePicker::make('date')
-                    ->default(now()->subDay())
+                    ->default(now())
                     ->maxDate(now())
                     ->required(),
-                //                Select::make('provider_id')
-                //                    ->relationship('provider', 'name'),
-                //                TextInput::make('originator_type')
-                //                    ->required(),
-                //                TextInput::make('originator_id')
-                //                    ->required()
-                //                    ->numeric(),
-                //                TextInput::make('provider_reference'),
-                //                TextInput::make('amount')
-                //                    ->required()
-                //                    ->numeric(),
-                //                TextInput::make('fee')
-                //                    ->required()
-                //                    ->numeric()
-                //                    ->default(0),
-                //                Select::make('currency')
-                //                    ->options(Currency::class)
-                //                    ->required(),
-                //                Select::make('mode')
-                //                    ->options(PaymentMode::class)
-                //                    ->default('test')
-                //                    ->required(),
-                //                Select::make('status')
-                //                    ->options(PayoutStatus::class)
-                //                    ->default('pending')
-                //                    ->required(),
-                //                TextInput::make('reference')
-                //                    ->required(),
-                //                Toggle::make('requires_otp')
-                //                    ->required(),
-                //                TextInput::make('metadata'),
-                //                Select::make('bank_account_id')
-                //                    ->relationship('bankAccount', 'id'),
             ]);
     }
 }

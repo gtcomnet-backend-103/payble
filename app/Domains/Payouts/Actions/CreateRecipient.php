@@ -40,7 +40,6 @@ final readonly class CreateRecipient
             'verified_at' => now()
         ]);
 
-        $business->save(); //todo: Redundancy!! Why are you saving business if no update was made to it?
         return $bankAccount;
     }
 }

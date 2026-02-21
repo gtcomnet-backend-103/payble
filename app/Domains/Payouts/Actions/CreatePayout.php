@@ -74,11 +74,10 @@ final readonly class CreatePayout implements IdempotentAction
 
             // Calculate daily earnings (excluding funding/internal adjustments)
             $date = $data['date'] ?? now()->subDay()->format('Y-m-d');
+
             $earnings = $account->entries()
-                ->where('direction', EntryDirection::CREDIT)
                 ->whereDate('created_at', $date)
-                ->whereHas('transaction', fn ($q) => $q->where('source_type', '!=', 'funding'))
-                ->sum('amount');
+                ->sum(DB::raw("CASE WHEN direction = 'credit' THEN amount ELSE -amount END"));
 
             if ($earnings <= 0) {
                 throw ValidationException::withMessages([

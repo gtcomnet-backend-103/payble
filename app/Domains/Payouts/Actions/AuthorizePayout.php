@@ -61,6 +61,10 @@ final class AuthorizePayout
                 'provider_id' => $provider->id,
                 'status' => PayoutStatus::Processing,
             ]);
+
+            if ($response->status->isFinal()) {
+                app(ProcessPayout::class)->execute($payout);
+            }
         } catch (Exception $e) {
             $payout->update([
                 'status' => PayoutStatus::Failed,

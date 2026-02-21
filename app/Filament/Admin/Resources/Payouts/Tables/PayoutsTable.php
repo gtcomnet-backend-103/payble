@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Filament\Admin\Resources\Payouts\Tables;
 
 use App\Domains\Payouts\Actions\AuthorizePayout;
+use App\Enums\PayoutStatus;
 use App\Models\Payout;
 use Exception;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Notifications\Notification;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Log;
@@ -57,18 +57,19 @@ final class PayoutsTable
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 //
             ])
             ->recordActions([
                 Action::make('authorize')
+                    ->visible(fn (Payout $record) => $record->status->is(PayoutStatus::Pending))
                     ->requiresConfirmation()
                     ->action(function (Payout $record, AuthorizePayout $authorizeAction) {
                         try {
                             $authorizeAction->execute($record);
-                            Notification::make()->danger()->title('Payout has been authorized and processing')->send();
+                            Notification::make()->success()->title('Payout has been authorized and processing')->send();
                         } catch (Exception $exception) {
                             Log::error($exception);
                             Notification::make()->danger()->title($exception->getMessage())->send();
@@ -76,9 +77,7 @@ final class PayoutsTable
                     }),
             ])
             ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+
             ]);
     }
 }

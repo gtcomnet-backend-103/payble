@@ -5,15 +5,17 @@ declare(strict_types=1);
 namespace App\Domains\Payouts\Jobs;
 
 use App\Domains\Payouts\Actions\ProcessPayout;
+use App\Enums\PayoutStatus;
 use App\Models\Payout;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class ProcessPayoutJob implements ShouldQueue
+final class ProcessPayoutJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -39,11 +41,11 @@ class ProcessPayoutJob implements ShouldQueue
     {
         $processPayout->execute($this->payout);
 
-        if ($this->payout->status->is(\App\Enums\PayoutStatus::Processing)) {
+        if ($this->payout->status->is(PayoutStatus::Processing)) {
             $this->payout->touch();
 
             if ($this->attempts() >= $this->tries) {
-                $this->payout->update(['status' => \App\Enums\PayoutStatus::ReconciliationRequired]);
+                $this->payout->update(['status' => PayoutStatus::ReconciliationRequired]);
 
                 return;
             }
@@ -54,10 +56,10 @@ class ProcessPayoutJob implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
-        if ($this->payout->status->is(\App\Enums\PayoutStatus::Processing)) {
-            $this->payout->update(['status' => \App\Enums\PayoutStatus::Unknown]);
+        if ($this->payout->status->is(PayoutStatus::Processing)) {
+            $this->payout->update(['status' => PayoutStatus::Unknown]);
         }
 
-        \Illuminate\Support\Facades\Log::error("ProcessPayoutJob failed for payout {$this->payout->id}: " . $exception->getMessage());
+        Log::error("ProcessPayoutJob failed for payout {$this->payout->id}: ".$exception->getMessage());
     }
 }
