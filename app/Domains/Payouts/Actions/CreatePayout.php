@@ -16,7 +16,6 @@ use App\Enums\PayoutStatus;
 use App\Models\Business;
 use App\Models\Payout;
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -74,7 +73,7 @@ final readonly class CreatePayout implements IdempotentAction
             $account = $this->ledgerService->receivable($business, $currency->value, $mode);
 
             // Calculate daily earnings (excluding funding/internal adjustments)
-            $date = Carbon::make($data['date'])->format('Y-m-d') ?? now()->subDay()->format('Y-m-d');
+            $date = $data['date'] ?? now()->subDay()->format('Y-m-d');
             $earnings = $account->entries()
                 ->where('direction', EntryDirection::CREDIT)
                 ->whereDate('created_at', $date)

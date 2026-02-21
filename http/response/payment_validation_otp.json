@@ -1,13 +1,13 @@
 {
   "status": "success",
   "amount": 100000,
-  "reference": "4ydaDfnpUPvZIi",
+  "reference": "lpYay03Z5cukRX",
   "customer": {
     "first_name": null,
     "last_name": null,
     "email": "customer@example.com",
     "phone": null
   },
-  "fee": 2000,
+  "fee": 10000,
   "authorization": []
 }

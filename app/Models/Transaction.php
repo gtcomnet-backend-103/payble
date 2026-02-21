@@ -74,6 +74,7 @@ final class Transaction extends Model
         'source_id',
         'source_type',
         'provider_fee',
+        'provider_reference',
     ];
 
     public function business(): BelongsTo

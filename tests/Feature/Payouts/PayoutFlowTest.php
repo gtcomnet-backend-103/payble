@@ -20,6 +20,7 @@ use App\Models\Transaction;
 use App\Supports\Providers\DataTransferObjects\ProviderResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
 use function Pest\Laravel\mock;
@@ -63,6 +64,10 @@ beforeEach(function () {
         'mode' => PaymentMode::Test,
     ]);
 
+    config(['app.payment_mode' => 'test']);
+
+    Queue::fake();
+
     $this->ledgerService = app(LedgerService::class);
 });
 
@@ -73,7 +78,7 @@ it('completes the full payout lifecycle', function () {
     $fundingTx = Transaction::factory()->create([
         'business_id' => $this->business->id,
         'amount' => $initialAmount,
-        'reference' => 'SEED_' . Str::random(10),
+        'reference' => 'SEED_'.Str::random(10),
         'source_type' => 'payment',
         'source_id' => $this->business->id,
     ]);
@@ -85,7 +90,7 @@ it('completes the full payout lifecycle', function () {
     $payout = $createAction->execute($this->business, $this->admin, [
         'date' => now()->format('Y-m-d'),
         'currency' => Currency::NGN->value,
-        'reference' => 'PAY-' . Str::random(10),
+        'reference' => 'PAY-'.Str::random(10),
     ]);
 
     expect($payout->status)->toBe(PayoutStatus::Pending)
@@ -106,6 +111,8 @@ it('completes the full payout lifecycle', function () {
     $payout = $authAction->execute($payout);
 
     expect($payout->status)->toBe(PayoutStatus::Processing);
+
+    Queue::assertNotPushed(App\Domains\Payouts\Jobs\ProcessPayoutJob::class);
 
     // 4. Process Payout (Processing -> Success)
     $payout->refresh(); // Load provider relationship for verify()
@@ -130,7 +137,7 @@ it('reverses funds on payout failure', function () {
     $fundingTx = Transaction::factory()->create([
         'business_id' => $this->business->id,
         'amount' => $initialAmount,
-        'reference' => 'SEED_' . Str::random(10),
+        'reference' => 'SEED_'.Str::random(10),
         'source_type' => 'payment',
         'source_id' => $this->business->id,
     ]);

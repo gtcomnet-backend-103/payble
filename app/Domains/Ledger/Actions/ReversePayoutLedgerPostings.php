@@ -7,7 +7,6 @@ namespace App\Domains\Ledger\Actions;
 use App\Domains\Ledger\DataTransferObjects\LedgerEntry as LedgerEntryDTO;
 use App\Domains\Ledger\Facades\Ledger;
 use App\Domains\Ledger\Services\LedgerService;
-use App\Enums\AccountType;
 use App\Models\Payout;
 use App\Models\Transaction;
 use RuntimeException;
@@ -39,7 +38,7 @@ final class ReversePayoutLedgerPostings
 
         // Retrieve accounts
         $businessWallet = $this->ledgerService->businessReceivable($transaction->business, $currency, $mode);
-        $businessReserved = $this->ledgerService->getAccount($transaction->business, AccountType::BUSINESS_HOLDS, $currency, $mode);
+        $businessReserved = $this->ledgerService->holding($transaction->business, $currency, $mode);
 
         $entries = [
             // Credit Business Wallet (Refund to available - Increase liability)

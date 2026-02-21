@@ -22,7 +22,7 @@ final class ProvidersTable
                 ToggleColumn::make('is_active')
                     ->label('Active'),
                 ToggleColumn::make('is_payout_enabled')
-                    ->label('Support Payout'),
+                    ->label('Payout support'),
                 IconColumn::make('is_healthy')
                     ->boolean(),
                 TextColumn::make('created_at')

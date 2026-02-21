@@ -7,7 +7,6 @@ namespace App\Domains\Ledger\Actions;
 use App\Domains\Ledger\DataTransferObjects\LedgerEntry as LedgerEntryDTO;
 use App\Domains\Ledger\Facades\Ledger;
 use App\Domains\Ledger\Services\LedgerService;
-use App\Enums\AccountType;
 use App\Models\Payout;
 use App\Models\Transaction;
 use RuntimeException;
@@ -38,7 +37,7 @@ final class RecordPayoutLedgerPostings
         $mode = $transaction->mode;
 
         // Retrieve accounts
-        $businessReserved = $this->ledgerService->getAccount($transaction->business, AccountType::BUSINESS_HOLDS, $currency, $mode);
+        $businessReserved = $this->ledgerService->holding($transaction->business, $currency, $mode);
         $providerClearing = $this->ledgerService->providerReceivable($payout->provider, $currency, $mode);
         $expense = $this->ledgerService->providerFee($payout->provider, $currency, $mode);
         $revenue = $this->ledgerService->platformRevenue($currency, $mode);

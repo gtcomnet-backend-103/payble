@@ -70,12 +70,12 @@ final class LedgerService
 
     public function platformRevenue(string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount(null, AccountType::PLATFORM_FEE_REVENUE, $currency, $mode);
+        return $this->getAccount(null, AccountType::REVENUE, $currency, $mode);
     }
 
     public function providerFee(Provider $provider, string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
-        return $this->getAccount($provider, AccountType::PROVIDER_FEE_EXPENSE, $currency, $mode);
+        return $this->getAccount($provider, AccountType::EXPENSE, $currency, $mode);
     }
 
     /**

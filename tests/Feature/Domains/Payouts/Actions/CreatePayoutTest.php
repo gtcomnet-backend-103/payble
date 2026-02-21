@@ -25,6 +25,8 @@ beforeEach(function () {
     $this->bankAccount->business()->associate($this->business);
     $this->bankAccount->save();
 
+    config(['app.payment_mode' => 'test']);
+
     $this->ledgerService = app(LedgerService::class);
     $this->businessAccount = $this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test);
 
@@ -32,7 +34,7 @@ beforeEach(function () {
     $fundingTx = Transaction::factory()->create([
         'business_id' => $this->business->id,
         'amount' => 1000000,
-        'reference' => 'FUND_' . Str::random(10),
+        'reference' => 'FUND_'.Str::random(10),
         'source_type' => 'funding',
         'source_id' => $this->business->id,
     ]);
@@ -45,7 +47,7 @@ beforeEach(function () {
     $earningTx = Transaction::factory()->create([
         'business_id' => $this->business->id,
         'amount' => 50000,
-        'reference' => 'EARN_' . Str::random(10),
+        'reference' => 'EARN_'.Str::random(10),
         'source_type' => 'payment',
         'source_id' => 1,
     ]);
