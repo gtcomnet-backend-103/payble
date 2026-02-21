@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -14,6 +16,7 @@ return new class extends Migration
         Schema::create('bank_accounts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('business_id')->nullable();
+            $table->string('currency', 3)->default('NGN');
             $table->string('account_number');
             $table->string('account_name');
             $table->string('bank_code');
@@ -35,9 +38,14 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('payouts', function (Blueprint $table) {
+            $table->dropColumn('bank_account_id');
+        });
+
         Schema::table('businesses', function (Blueprint $table) {
             $table->dropColumn('bank_account_id');
         });
+
         Schema::dropIfExists('bank_accounts');
     }
 };

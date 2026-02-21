@@ -17,9 +17,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('business_id')->constrained('businesses')->cascadeOnDelete();
             $table->foreignId('provider_id')->nullable()->constrained('providers')->nullOnDelete();
+            $table->string('type', 20)->default('payout');
             $table->morphs('originator');
             $table->string('provider_reference')->nullable();
             $table->unsignedBigInteger('amount');
+            $table->unsignedBigInteger('fee')->default(0);
             $table->string('currency', 3);
             $table->string('mode', 20)->default('test');
             $table->string('status', 20)->default('pending');

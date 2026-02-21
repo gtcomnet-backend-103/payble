@@ -17,6 +17,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('business_id')->constrained()->cascadeOnDelete();
             $table->morphs('source');
+            $table->unsignedBigInteger('amount');
+            $table->unsignedBigInteger('fee')->default(0);
+            $table->unsignedInteger('provider_fee')->default(0);
+            $table->string('provider_reference')->nullable()->index();
             $table->string('currency', 3);
             $table->string('status');
             $table->string('reference');

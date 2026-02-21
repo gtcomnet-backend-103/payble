@@ -15,9 +15,13 @@ return new class extends Migration
     {
         Schema::create('ledger_batches', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('transaction_id')->unique()->constrained()->onDelete('cascade');
+            $table->string('name')->default('default');
+            $table->foreignId('transaction_id')->nullable()->constrained()->nullOnDelete();
             $table->timestamp('posted_at')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
+
+            $table->unique(['transaction_id', 'name']);
         });
 
         Schema::create('account_balances', function (Blueprint $table) {
@@ -29,9 +33,7 @@ return new class extends Migration
         });
 
         Schema::table('ledger_entries', function (Blueprint $table) {
-            if (! Schema::hasColumn('ledger_entries', 'ledger_batch_id')) {
-                $table->foreignId('ledger_batch_id')->nullable()->constrained('ledger_batches')->onDelete('cascade');
-            }
+            $table->foreignId('ledger_batch_id')->nullable()->constrained('ledger_batches')->onDelete('cascade');
         });
     }
 

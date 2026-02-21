@@ -27,6 +27,7 @@ return new class extends Migration
             $table->json('raw_request')->nullable();
             $table->json('raw_response')->nullable();
             $table->json('metadata')->nullable();
+            $table->timestamp('completed_at')->index();
             $table->timestamps();
         });
     }

@@ -18,11 +18,12 @@ return new class extends Migration
             $table->nullableMorphs('holder');
             $table->string('type');
             $table->string('currency', 3);
+            $table->string('mode', 20)->default('live');
             $table->json('metadata')->nullable();
             $table->bigInteger('balance')->default(0);
             $table->timestamps();
 
-            $table->unique(['currency', 'holder_id', 'holder_type', 'type']);
+            $table->unique(['currency', 'holder_id', 'holder_type', 'type', 'mode'], 'ledger_accounts_unique_index');
         });
     }
 

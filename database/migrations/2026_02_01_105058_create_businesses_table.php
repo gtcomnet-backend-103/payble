@@ -18,6 +18,8 @@ return new class extends Migration
             $table->foreignId('owner_id')->constrained('users')->cascadeOnDelete();
             $table->string('name');
             $table->string('email')->unique();
+            $table->string('webhook_url')->nullable();
+            $table->timestamp('verified_at')->nullable();
             $table->timestamps();
         });
     }
