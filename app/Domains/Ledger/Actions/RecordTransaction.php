@@ -25,7 +25,7 @@ final class RecordTransaction
             'source_id' => $source->id,
             'reference' => $data->reference,
             'amount' => $data->amount,
-            'fee' => 0,
+            'fee' => $data->fee,
             'currency' => $data->currency,
             'status' => TransactionStatus::Pending,
             'mode' => $data->mode,

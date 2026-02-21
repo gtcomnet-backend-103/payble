@@ -9,6 +9,7 @@ use App\Domains\Ledger\DataTransferObjects\TransactionData;
 use App\Enums\Currency;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
+use App\Enums\PayoutType;
 use Eloquent;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -27,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property int $amount
  * @property int $fee
  * @property Currency $currency
+ * @property PayoutType $type
  * @property PaymentMode $mode
  * @property PayoutStatus $status
  * @property string $reference
@@ -72,6 +74,7 @@ class Payout extends Model implements Recordable
     protected $fillable = [
         'business_id',
         'provider_id',
+        'type',
         'amount',
         'fee',
         'currency',
@@ -90,6 +93,7 @@ class Payout extends Model implements Recordable
             'amount' => 'integer',
             'fee' => 'integer',
             'currency' => Currency::class,
+            'type' => PayoutType::class,
             'mode' => PaymentMode::class,
             'status' => PayoutStatus::class,
             'requires_otp' => 'boolean',

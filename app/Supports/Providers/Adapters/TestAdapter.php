@@ -64,4 +64,11 @@ final class TestAdapter implements ProviderAdapter
     {
         return $this->verifyTransaction($reference);
     }
+
+    public function listBanks(): array
+    {
+        return [
+            ['name' => 'Test Bank', 'code' => '000'],
+        ];
+    }
 }

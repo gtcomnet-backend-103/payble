@@ -225,7 +225,7 @@ final class PaystackAdapter implements ProviderAdapter
                 status: AuthorizationStatus::Failed,
                 providerReference: $dto->reference, // No provider ref yet
                 rawResponse: $recipientResponse->json() ?? [],
-                metadata: ['error' => 'Recipient creation failed: '.$recipientResponse->reason()]
+                metadata: ['error' => 'Recipient creation failed: ' . $recipientResponse->reason()]
             );
         }
 
@@ -238,7 +238,7 @@ final class PaystackAdapter implements ProviderAdapter
                 'amount' => $dto->amount,
                 'recipient' => $recipientCode,
                 'reference' => $dto->reference,
-                'reason' => 'Payout '.$dto->reference,
+                'reason' => 'Payout ' . $dto->reference,
             ]);
 
         if ($transferResponse->failed()) {
@@ -246,7 +246,7 @@ final class PaystackAdapter implements ProviderAdapter
                 status: AuthorizationStatus::Failed,
                 providerReference: $dto->reference,
                 rawResponse: $transferResponse->json() ?? [],
-                metadata: ['error' => 'Transfer failed: '.$transferResponse->reason()]
+                metadata: ['error' => 'Transfer failed: ' . $transferResponse->reason()]
             );
         }
 
@@ -296,5 +296,12 @@ final class PaystackAdapter implements ProviderAdapter
             Log::error($exception->getMessage());
             throw new Exception('Account validation failed');
         }
+    }
+
+    public function listBanks(): array
+    {
+        return Http::withToken(config('services.paystack.secret'))
+            ->get('https://api.paystack.co/bank')
+            ->json('data') ?? [];
     }
 }

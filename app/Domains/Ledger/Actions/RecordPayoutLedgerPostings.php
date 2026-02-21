@@ -43,18 +43,17 @@ final class RecordPayoutLedgerPostings
         $revenue = $this->ledgerService->platformRevenue($currency, $mode);
 
         $entries = [
-            // Release holds
+            // Release holds (The full gross amount was reserved)
             LedgerEntryDTO::debit($businessReserved, $amount),
 
-            // Move obligation to provider
-            LedgerEntryDTO::credit($providerClearing, $amount),
+            // Move obligation to provider (Net amount)
+            LedgerEntryDTO::credit($providerClearing, $amount - $platformFee),
 
-            // Provider Fee (Expense)
+            // Provider Fee (Expense) - Kept as is, assuming provider fee is matched by Provider
             LedgerEntryDTO::debit($expense, $providerFee),
             LedgerEntryDTO::credit($providerClearing, $providerFee),
 
-            // Platform Fee (Revenue) - Deducted from business available
-            LedgerEntryDTO::debit($this->ledgerService->businessReceivable($transaction->business, $currency, $mode), $platformFee),
+            // Platform Fee (Revenue) - Already deducted from business via hold release
             LedgerEntryDTO::credit($revenue, $platformFee),
         ];
 

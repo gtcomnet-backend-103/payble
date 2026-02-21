@@ -61,4 +61,9 @@ final readonly class DisbursementProvider implements BankAccountResolver, Disbur
     {
         return app(PaystackAdapter::class)->validateAccount($accountNumber, $bankCode);
     }
+
+    public function listBanks(Provider $provider): array
+    {
+        return $this->providerResolver->resolve($provider)->listBanks();
+    }
 }

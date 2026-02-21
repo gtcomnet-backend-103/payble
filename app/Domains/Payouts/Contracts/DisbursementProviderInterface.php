@@ -18,4 +18,6 @@ interface DisbursementProviderInterface
     public function provider(?PaymentMode $mode = null): Provider;
 
     public function verify(Provider $provider, string $reference): ProviderResponse;
+
+    public function listBanks(Provider $provider): array;
 }

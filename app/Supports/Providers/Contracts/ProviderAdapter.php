@@ -29,4 +29,6 @@ interface ProviderAdapter
     public function initiateTransfer(PayoutTransferData $dto): ProviderResponse;
 
     public function verifyTransfer(string $reference): ProviderResponse;
+
+    public function listBanks(): array;
 }
