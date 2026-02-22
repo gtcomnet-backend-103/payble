@@ -31,10 +31,11 @@ class LedgerTransferTest extends TestCase
         parent::setUp();
 
         $this->user = User::factory()->create();
-        $this->business = Business::create([
+        $this->business = Business::factory()->create([
             'name' => 'Test Business',
             'email' => 'test@business.com',
             'owner_id' => $this->user->id,
+            'advance_threshold_percentage' => 100,
         ]);
         $this->user->businesses()->attach($this->business);
         Sanctum::actingAs($this->business, ['*'], 'business');
@@ -138,13 +139,13 @@ class LedgerTransferTest extends TestCase
 
         $this->assertDatabaseHas('payouts', [
             'reference' => $reference,
-            'type' => PayoutType::Transfer->value,
+            'type' => PayoutType::Advance->value,
             'status' => PayoutStatus::Pending->value,
         ]);
 
-        // Check ledger reservation
-        $holdsAccount = Ledger::holding($this->business, 'NGN', PaymentMode::Test);
-        $this->assertEquals(-100000, Ledger::getBalance($holdsAccount)); // Principal (Fee is included in this amount)
+        // Check ledger advance debt
+        $advanceAccount = Ledger::advance($this->business, 'NGN', PaymentMode::Test);
+        $this->assertEquals(100000, Ledger::getBalance($advanceAccount)); // Business owes 1,000 NGN
 
         // 3. Authorize
         $authResponse = $this->postJson("/api/transfers/{$reference}/authorize");
@@ -152,8 +153,10 @@ class LedgerTransferTest extends TestCase
         $authResponse->assertStatus(200)
             ->assertJsonPath('data.status', PayoutStatus::Success->value);
 
-        // Check ledger completion
-        $this->assertEquals(0, Ledger::getBalance($holdsAccount));
+        // Check ledger is still in hold state (Reservation)
+        // Wait, for Advances, debt is already recorded.
+        // So we check that Advance balance still exists
+        $this->assertEquals(100000, Ledger::getBalance($advanceAccount));
 
         // Check provider clearing account
         $provider = Provider::where('identifier', 'test-provider')->first();
@@ -197,9 +200,9 @@ class LedgerTransferTest extends TestCase
         $this->postJson("/api/transfers/{$reference}/authorize");
 
         // 4. Verify ledger reversal
-        // Holding account should be 0 again
-        $holdsAccount = Ledger::holding($this->business, 'NGN', PaymentMode::Test);
-        $this->assertEquals(0, Ledger::getBalance($holdsAccount));
+        // Advance debt should be 0 again
+        $advanceAccount = Ledger::advance($this->business, 'NGN', PaymentMode::Test);
+        $this->assertEquals(0, Ledger::getBalance($advanceAccount));
 
         // Receivable account should be back to -500,000
         $this->assertEquals(-500000, Ledger::getBalance($account));

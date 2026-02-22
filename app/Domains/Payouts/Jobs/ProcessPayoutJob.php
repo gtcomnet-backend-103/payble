@@ -15,7 +15,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-final class ProcessPayoutJob implements ShouldQueue
+class ProcessPayoutJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -60,6 +60,6 @@ final class ProcessPayoutJob implements ShouldQueue
             $this->payout->update(['status' => PayoutStatus::Unknown]);
         }
 
-        Log::error("ProcessPayoutJob failed for payout {$this->payout->id}: ".$exception->getMessage());
+        Log::error("ProcessPayoutJob failed for payout {$this->payout->id}: " . $exception->getMessage());
     }
 }

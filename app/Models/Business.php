@@ -74,6 +74,7 @@ final class Business extends Authenticatable
         'account_name',
         'bank_code',
         'currency',
+        'advance_threshold_percentage',
     ];
 
     public function owner(): BelongsTo
@@ -101,6 +102,11 @@ final class Business extends Authenticatable
         return $this->hasMany(BankAccount::class);
     }
 
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(Payout::class);
+    }
+
     public function bankAccount(): HasOne
     {
         return $this->bankAccounts()->latest()->one();
@@ -123,6 +129,7 @@ final class Business extends Authenticatable
     {
         return [
             'verified_at' => 'immutable_datetime',
+            'advance_threshold_percentage' => 'integer',
         ];
     }
 }

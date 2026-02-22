@@ -78,8 +78,8 @@ it('completes the full payout lifecycle', function () {
     $fundingTx = Transaction::factory()->create([
         'business_id' => $this->business->id,
         'amount' => $initialAmount,
-        'reference' => 'SEED_'.Str::random(10),
-        'source_type' => 'payment',
+        'reference' => 'SEED_' . Str::random(10),
+        'source_type' => \App\Models\PaymentIntent::class,
         'source_id' => $this->business->id,
     ]);
     $this->ledgerService->post($fundingTx, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $businessAccount, $initialAmount);
@@ -90,7 +90,7 @@ it('completes the full payout lifecycle', function () {
     $payout = $createAction->execute($this->business, $this->admin, [
         'date' => now()->format('Y-m-d'),
         'currency' => Currency::NGN->value,
-        'reference' => 'PAY-'.Str::random(10),
+        'reference' => 'PAY-' . Str::random(10),
     ]);
 
     expect($payout->status)->toBe(PayoutStatus::Pending)
@@ -137,8 +137,8 @@ it('reverses funds on payout failure', function () {
     $fundingTx = Transaction::factory()->create([
         'business_id' => $this->business->id,
         'amount' => $initialAmount,
-        'reference' => 'SEED_'.Str::random(10),
-        'source_type' => 'payment',
+        'reference' => 'SEED_' . Str::random(10),
+        'source_type' => \App\Models\PaymentIntent::class,
         'source_id' => $this->business->id,
     ]);
     $this->ledgerService->post($fundingTx, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $businessAccount, $initialAmount);

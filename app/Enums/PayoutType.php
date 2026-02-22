@@ -8,4 +8,5 @@ enum PayoutType: string
 {
     case Payout = 'payout';
     case Transfer = 'transfer';
+    case Advance = 'advance';
 }

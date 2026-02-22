@@ -30,15 +30,8 @@ beforeEach(function () {
     $this->ledgerService = app(LedgerService::class);
     $this->businessAccount = $this->ledgerService->businessReceivable($this->business, 'NGN', PaymentMode::Test);
 
-    // Fund account for general balance check
-    $fundingTx = Transaction::factory()->create([
-        'business_id' => $this->business->id,
-        'amount' => 1000000,
-        'reference' => 'FUND_'.Str::random(10),
-        'source_type' => 'funding',
-        'source_id' => $this->business->id,
-    ]);
-    $this->ledgerService->post($fundingTx, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $this->businessAccount, 1000000);
+    // Fund account for general balance check - using internal credit (no transaction)
+    $this->ledgerService->issueInternalCredit($this->businessAccount, 1000000);
 
     // Seed earnings for "yesterday"
     $yesterday = now()->subDay();
@@ -47,8 +40,8 @@ beforeEach(function () {
     $earningTx = Transaction::factory()->create([
         'business_id' => $this->business->id,
         'amount' => 50000,
-        'reference' => 'EARN_'.Str::random(10),
-        'source_type' => 'payment',
+        'reference' => 'EARN_' . Str::random(10),
+        'source_type' => \App\Models\PaymentIntent::class,
         'source_id' => 1,
     ]);
     $this->ledgerService->post($earningTx, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $this->businessAccount, 50000);
@@ -126,7 +119,7 @@ it('calculates payout amount correctly for a specific date', function () {
             'business_id' => $this->business->id,
             'amount' => 10000,
             'reference' => "EARN_SPECIFIC_{$i}",
-            'source_type' => 'payment',
+            'source_type' => \App\Models\PaymentIntent::class,
             'source_id' => $i + 100,
         ]);
         $this->ledgerService->post($earningTx, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $this->businessAccount, 10000);
@@ -140,4 +133,42 @@ it('calculates payout amount correctly for a specific date', function () {
     ]);
 
     expect($payout->amount)->toBe(30000);
+});
+
+it('supports multiple payouts for the same date when earnings are added in between', function () {
+    $date = now()->format('Y-m-d');
+
+    // 1. First earning
+    $earning1 = Transaction::factory()->create([
+        'business_id' => $this->business->id,
+        'amount' => 10000,
+        'reference' => 'EARN_MULTIPLE_1',
+        'source_type' => \App\Models\PaymentIntent::class,
+        'source_id' => 1,
+    ]);
+    $this->ledgerService->post($earning1, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $this->businessAccount, 10000);
+
+    // 2. First payout
+    $payout1 = $this->action->execute($this->business, $this->admin, [
+        'date' => $date,
+        'currency' => 'NGN',
+    ]);
+    expect($payout1->amount)->toBe(10000);
+
+    // 3. Second earning for same date
+    $earning2 = Transaction::factory()->create([
+        'business_id' => $this->business->id,
+        'amount' => 20000,
+        'reference' => 'EARN_MULTIPLE_2',
+        'source_type' => \App\Models\PaymentIntent::class,
+        'source_id' => 2,
+    ]);
+    $this->ledgerService->post($earning2, $this->ledgerService->platformReceivable('NGN', PaymentMode::Test), $this->businessAccount, 20000);
+
+    // 4. Second payout for same date
+    $payout2 = $this->action->execute($this->business, $this->admin, [
+        'date' => $date,
+        'currency' => 'NGN',
+    ]);
+    expect($payout2->amount)->toBe(20000);
 });

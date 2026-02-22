@@ -125,4 +125,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'payment_mode' => env('PAYMENT_MODE', 'live'),
+
 ];

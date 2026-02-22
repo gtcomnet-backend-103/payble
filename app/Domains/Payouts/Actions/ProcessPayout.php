@@ -34,7 +34,10 @@ final class ProcessPayout
             return DB::transaction(function () use ($payout, $response): Payout {
                 if ($response->status === AuthorizationStatus::Success) {
                     $payout->update(['status' => PayoutStatus::Success]);
-                    $this->ledger->postTransaction($payout->transaction);
+
+                    if ($payout->type === \App\Enums\PayoutType::Payout) {
+                        $this->ledger->postTransaction($payout->transaction);
+                    }
                 }
 
                 if ($response->status === AuthorizationStatus::Failed) {

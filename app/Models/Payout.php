@@ -145,4 +145,21 @@ class Payout extends Model implements Recordable
             fn() => max(0, $this->amount - $this->fee)
         );
     }
+
+    protected function disbursementAmount(): Attribute
+    {
+        return Attribute::get(function () {
+            if ($this->type !== PayoutType::Payout) {
+                return $this->net_amount;
+            }
+
+            $currentDebt = \App\Domains\Ledger\Facades\Ledger::getBalance(
+                \App\Domains\Ledger\Facades\Ledger::advance($this->business, $this->currency->value, $this->mode)
+            );
+
+            $settlementAmount = min($this->net_amount, $currentDebt);
+
+            return max(0, $this->net_amount - $settlementAmount);
+        });
+    }
 }

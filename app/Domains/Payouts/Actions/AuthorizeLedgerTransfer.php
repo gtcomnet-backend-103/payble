@@ -29,40 +29,63 @@ final readonly class AuthorizeLedgerTransfer
 
         /** @var \App\Models\Provider $provider */
         $provider = $this->disbursementProvider->provider($transfer->mode);
+        $disbursementAmount = $transfer->disbursement_amount;
 
-        $netAmount = $transfer->amount - $transfer->fee;
+        try {
+            if ($disbursementAmount > 0) {
+                $response = $this->disbursementProvider->transfer(
+                    $provider,
+                    $transfer->reference,
+                    $transfer->bankAccount->account_number,
+                    $transfer->bankAccount->bank_code,
+                    $disbursementAmount
+                );
 
-        $response = $this->disbursementProvider->transfer(
-            $provider,
-            $transfer->reference,
-            $transfer->bankAccount->account_number,
-            $transfer->bankAccount->bank_code,
-            $netAmount
-        );
+                return DB::transaction(function () use ($transfer, $provider, $response) {
+                    $transfer->update([
+                        'provider_id' => $provider->id,
+                        'provider_reference' => $response->providerReference,
+                        'status' => match ($response->status) {
+                            AuthorizationStatus::Success => PayoutStatus::Success,
+                            AuthorizationStatus::Failed => PayoutStatus::Failed,
+                            default => PayoutStatus::Processing,
+                        },
+                    ]);
 
-        return DB::transaction(function () use ($transfer, $provider, $response) {
-            $transfer->update([
-                'provider_id' => $provider->id,
-                'provider_reference' => $response->providerReference,
-                'status' => match ($response->status) {
-                    AuthorizationStatus::Success => PayoutStatus::Success,
-                    AuthorizationStatus::Failed => PayoutStatus::Failed,
-                    default => PayoutStatus::Processing,
-                },
-            ]);
+                    if ($response->status === AuthorizationStatus::Success) {
+                        if ($transfer->type === \App\Enums\PayoutType::Payout) {
+                            $this->ledgerPostingService->postTransaction($transfer->transaction);
+                        }
 
-            if ($response->status === AuthorizationStatus::Success) {
-                $this->ledgerPostingService->postTransaction($transfer->transaction);
+                        if ($transfer->type === \App\Enums\PayoutType::Advance) {
+                            $this->ledgerPostingService->postDisbursement($transfer->transaction);
+                        }
+                    }
+
+                    if ($response->status === AuthorizationStatus::Failed) {
+                        $this->ledgerPostingService->reverse($transfer->transaction);
+                    }
+
+                    return $transfer->refresh();
+                });
+            } else {
+                return DB::transaction(function () use ($transfer) {
+                    $transfer->update([
+                        'status' => PayoutStatus::Success,
+                        'metadata' => array_merge($transfer->metadata ?? [], ['info' => 'Fully settled against outstanding advance.']),
+                    ]);
+
+                    if ($transfer->type === \App\Enums\PayoutType::Payout) {
+                        $this->ledgerPostingService->postTransaction($transfer->transaction);
+                    }
+
+                    return $transfer->refresh();
+                });
             }
-
-            if ($response->status === AuthorizationStatus::Failed) {
-                $this->ledgerPostingService->reverse($transfer->transaction);
-            }
-
-            // Note: If status is Pending/Processing, the reservation remains.
-            // A separate verification job or webhook will finalize it.
-
-            return $transfer->refresh();
-        });
+        } catch (\Exception $e) {
+            $transfer->update(['status' => PayoutStatus::Failed]);
+            $this->ledgerPostingService->reverse($transfer->transaction);
+            throw $e;
+        }
     }
 }

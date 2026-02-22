@@ -12,6 +12,8 @@ interface LedgerServiceInterface
 {
     public function receivable(Model $model, string $currency, PaymentMode $mode = PaymentMode::Live): Account;
 
+    public function advance(Model $model, string $currency, PaymentMode $mode = PaymentMode::Live): Account;
+
     /**
      * Get the current balance of an account from the snapshot table.
      */

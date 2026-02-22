@@ -7,6 +7,9 @@ namespace App\Supports\Services;
 use App\Contracts\Recordable;
 use App\Domains\Ledger\Actions\PostToLedger;
 use App\Domains\Ledger\Actions\RecordPayoutLedgerPostings;
+use App\Domains\Ledger\Actions\RecordAdvancePostings;
+use App\Domains\Ledger\Actions\RecordAdvanceDisbursementPostings;
+use App\Domains\Ledger\Actions\RecordAdvanceSettlementPostings;
 use App\Domains\Ledger\Actions\RecordTransaction;
 use App\Domains\Ledger\Actions\ReversePayoutLedgerPostings;
 use App\Domains\Payouts\Contracts\LedgerPostingServiceInterface;
@@ -19,6 +22,9 @@ final class LedgerPayoutPostingService implements LedgerPostingServiceInterface
         private readonly RecordTransaction $recordTransaction,
         private readonly PostToLedger $reservePostToLedger,
         private readonly RecordPayoutLedgerPostings $recordPayoutLedgerPostings,
+        private readonly RecordAdvancePostings $recordAdvancePostings,
+        private readonly RecordAdvanceDisbursementPostings $recordAdvanceDisbursementPostings,
+        private readonly RecordAdvanceSettlementPostings $recordAdvanceSettlementPostings,
         private readonly ReversePayoutLedgerPostings $reversePayoutLedgerPostings,
     ) {}
 
@@ -30,6 +36,21 @@ final class LedgerPayoutPostingService implements LedgerPostingServiceInterface
     public function postTransaction(Transaction $transaction): void
     {
         $this->recordPayoutLedgerPostings->execute($transaction);
+    }
+
+    public function postAdvance(Transaction $transaction): void
+    {
+        $this->recordAdvancePostings->execute($transaction);
+    }
+
+    public function postDisbursement(Transaction $transaction): void
+    {
+        $this->recordAdvanceDisbursementPostings->execute($transaction);
+    }
+
+    public function postSettlement(Transaction $transaction): void
+    {
+        $this->recordAdvanceSettlementPostings->execute($transaction);
     }
 
     public function reserve(Transaction $transaction): void

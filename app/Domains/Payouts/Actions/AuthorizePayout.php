@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domains\Payouts\Actions;
 
 use App\Domains\Payouts\Contracts\DisbursementProviderInterface;
+use App\Domains\Payouts\Contracts\LedgerPostingServiceInterface;
+use App\Enums\AuthorizationStatus;
 use App\Enums\PayoutStatus;
 use App\Exceptions\PayoutException;
 use App\Models\Payout;
@@ -17,6 +19,7 @@ final class AuthorizePayout
     public function __construct(
         private DisbursementProviderInterface $disbursementProvider,
         private OtpServiceInterface $otpService,
+        private LedgerPostingServiceInterface $ledgerPostingService,
     ) {}
 
     /**
@@ -64,6 +67,10 @@ final class AuthorizePayout
 
             if ($response->status->isFinal()) {
                 app(ProcessPayout::class)->execute($payout);
+            }
+
+            if ($payout->type === \App\Enums\PayoutType::Advance && $response->status === AuthorizationStatus::Success) {
+                $this->ledgerPostingService->postDisbursement($payout->transaction);
             }
         } catch (Exception $e) {
             $payout->update([

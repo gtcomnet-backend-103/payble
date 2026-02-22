@@ -26,6 +26,7 @@ final class BusinessFactory extends Factory
             'name' => $this->faker->company(),
             'email' => $this->faker->unique()->safeEmail(),
             'owner_id' => User::factory(),
+            'advance_threshold_percentage' => 0,
         ];
     }
 }

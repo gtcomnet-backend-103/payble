@@ -65,17 +65,28 @@ final readonly class InitiateLedgerTransfer
             $metadata = $data['metadata'] ?? [];
             $metadata['account'] = $bankAccount->only(['account_name', 'account_number', 'bank_code']);
 
-            $account = $this->ledgerService->receivable($business, $currency->value, $mode);
-            $balance = $this->ledgerService->getBalance($account);
+            $receivableAccount = $this->ledgerService->receivable($business, $currency->value, $mode);
+            $advanceAccount = $this->ledgerService->advance($business, $currency->value, $mode);
 
-            if ($balance >= 0 || abs($balance) < $requestedAmount) {
+            $receivableBalance = $this->ledgerService->getBalance($receivableAccount);
+            $advanceBalance = $this->ledgerService->getBalance($advanceAccount);
+
+            // Receivable balance is negative (we owe business)
+            // Advance balance is positive (business owes us)
+            $availableForAdvance = (int) (abs($receivableBalance) * ($business->advance_threshold_percentage / 100));
+            $currentDebt = max(0, $advanceBalance);
+
+            if (($currentDebt + $requestedAmount) > $availableForAdvance) {
                 throw ValidationException::withMessages([
-                    'amount' => 'Insufficient balance for this transfer',
+                    'amount' => "Requested amount exceeds your advance limit of {$availableForAdvance}.",
                 ]);
             }
 
             $fee = $this->feeCalculator->calculate($requestedAmount, $currency, FeeChannel::Payout);
 
+            // Important: Fee is deducted from the amount going out (Net Disbursement)
+            // But the Payout record should store the Gross amount as 'amount'
+            // and the 'fee' separately, so net_amount correctly reflects what is sent to the provider.
             $transfer = $bankAccount->payouts()->create([
                 'business_id' => $business->id,
                 'originator_id' => $user instanceof Model ? $user->getKey() : null,
@@ -83,7 +94,7 @@ final readonly class InitiateLedgerTransfer
                 'amount' => $requestedAmount,
                 'fee' => $fee,
                 'currency' => $currency,
-                'type' => PayoutType::Transfer,
+                'type' => PayoutType::Advance,
                 'reference' => $reference,
                 'status' => PayoutStatus::Pending,
                 'mode' => $mode,
@@ -91,7 +102,7 @@ final readonly class InitiateLedgerTransfer
             ]);
 
             $transaction = $this->ledgerPostingService->recordTransaction($transfer);
-            $this->ledgerPostingService->reserve($transaction);
+            $this->ledgerPostingService->postAdvance($transaction);
 
             return $transfer;
         });

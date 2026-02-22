@@ -10,4 +10,5 @@ enum AccountType: string
     case BUSINESS_HOLDS = 'business_holds';
     case REVENUE = 'revenue';
     case EXPENSE = 'expense';
+    case ADVANCE = 'advance';
 }

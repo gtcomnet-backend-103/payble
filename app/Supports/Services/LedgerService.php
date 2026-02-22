@@ -19,6 +19,11 @@ final class LedgerService implements LedgerServiceInterface
         return $this->ledgerService->receivable($model, $currency, $mode);
     }
 
+    public function advance(Model $model, string $currency, PaymentMode $mode = PaymentMode::Live): Account
+    {
+        return $this->ledgerService->advance($model, $currency, $mode);
+    }
+
     public function getBalance(Account $account): int
     {
         return $this->ledgerService->getBalance($account);

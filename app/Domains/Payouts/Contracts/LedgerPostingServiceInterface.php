@@ -13,6 +13,12 @@ interface LedgerPostingServiceInterface
 
     public function postTransaction(Transaction $transaction): void;
 
+    public function postAdvance(Transaction $transaction): void;
+
+    public function postDisbursement(Transaction $transaction): void;
+
+    public function postSettlement(Transaction $transaction): void;
+
     public function reserve(Transaction $transaction): void;
 
     public function reverse(Transaction $transaction): void;

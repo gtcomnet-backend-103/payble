@@ -31,7 +31,7 @@ final class RecordPayoutLedgerPostings
         }
 
         $currency = $transaction->currency->value;
-        $amount = $payout->amount;
+        $grossAmount = $payout->amount;
         $platformFee = $transaction->fee;
         $providerFee = $transaction->provider_fee;
         $mode = $transaction->mode;
@@ -41,19 +41,37 @@ final class RecordPayoutLedgerPostings
         $providerClearing = $this->ledgerService->providerReceivable($payout->provider, $currency, $mode);
         $expense = $this->ledgerService->providerFee($payout->provider, $currency, $mode);
         $revenue = $this->ledgerService->platformRevenue($currency, $mode);
+        $advanceAccount = $this->ledgerService->advance($payout->business, $currency, $mode);
+
+        $currentDebt = $this->ledgerService->getBalance($advanceAccount);
+        $settlementAmount = 0;
+
+        // If it's a standard payout and business owes an advance
+        if ($payout->type === \App\Enums\PayoutType::Payout && $currentDebt > 0) {
+            $settlementAmount = min($grossAmount - $platformFee, $currentDebt);
+        }
+
+        $amountToDisburse = ($grossAmount - $platformFee) - $settlementAmount;
 
         $entries = [
-            // Release holds (The full gross amount was reserved)
-            LedgerEntryDTO::debit($businessReserved, $amount),
+            // 1. Release all holds (Gross amount was reserved)
+            LedgerEntryDTO::debit($businessReserved, $grossAmount),
 
-            // Move obligation to provider (Net amount)
-            LedgerEntryDTO::credit($providerClearing, $amount - $platformFee),
+            // 2. Clear Advance Debt (if any)
+            ...($settlementAmount > 0 ? [
+                LedgerEntryDTO::credit($advanceAccount, $settlementAmount),
+            ] : []),
 
-            // Provider Fee (Expense) - Kept as is, assuming provider fee is matched by Provider
+            // 3. Move remaining obligation to provider for bank transfer
+            ...($amountToDisburse > 0 ? [
+                LedgerEntryDTO::credit($providerClearing, $amountToDisburse),
+            ] : []),
+
+            // 4. Provider Fee (Expense) - Kept as is, assuming provider fee is matched by Provider
             LedgerEntryDTO::debit($expense, $providerFee),
             LedgerEntryDTO::credit($providerClearing, $providerFee),
 
-            // Platform Fee (Revenue) - Already deducted from business via hold release
+            // 5. Platform Fee (Revenue)
             LedgerEntryDTO::credit($revenue, $platformFee),
         ];
 

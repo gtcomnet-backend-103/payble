@@ -65,19 +65,34 @@ final readonly class CreatePayout implements IdempotentAction
             $currency = $bankAccount->currency;
             $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? PaymentMode::Live->value);
             $reference = $data['reference'] ?? Str::uuid()->toString();
-            $providerReference = 'PRV_'.Str::random(12);
+            $providerReference = 'PRV_' . Str::random(12);
             $requiresOtp = $data['requires_otp'] ?? false;
+            $date = $data['date'] ?? now()->subDay()->format('Y-m-d');
             $metadata = $data['metadata'] ?? [];
+            $metadata['payout_date'] = $date;
             $metadata['account'] = $bankAccount->only(['account_name', 'account_number', 'bank_code']);
 
             $account = $this->ledgerService->receivable($business, $currency->value, $mode);
 
-            // Calculate daily earnings (excluding funding/internal adjustments)
-            $date = $data['date'] ?? now()->subDay()->format('Y-m-d');
+            // 1. Calculate Gross Daily Revenue (Total credits from revenue sources)
+            $dailyRevenue = $account->entries()
+                ->whereDate('ledger_entries.created_at', $date)
+                ->whereNotNull('transaction_id')
+                ->whereHas('transaction', function ($query) {
+                    $query->where('source_type', \App\Models\PaymentIntent::class);
+                })
+                ->where('direction', EntryDirection::CREDIT)
+                ->sum('amount');
 
-            $earnings = $account->entries()
-                ->whereDate('created_at', $date)
-                ->sum(DB::raw("CASE WHEN direction = 'credit' THEN amount ELSE -amount END"));
+            // 2. Calculate what has already been paid out FOR this specific date
+            $alreadyPaid = $business->payouts()
+                ->where('currency', $currency)
+                ->where('mode', $mode)
+                ->where('metadata->payout_date', $date)
+                ->whereNotIn('status', [PayoutStatus::Failed])
+                ->sum('amount');
+
+            $earnings = $dailyRevenue - $alreadyPaid;
 
             if ($earnings <= 0) {
                 throw ValidationException::withMessages([
@@ -93,7 +108,7 @@ final readonly class CreatePayout implements IdempotentAction
              */
             if ($balance >= 0 || abs($balance) < $requestedAmount) {
                 throw ValidationException::withMessages([
-                    'amount' => 'Insufficient balance for this payout',
+                    'amount' => "Insufficient balance ({$balance}) for this payout of {$requestedAmount}",
                 ]);
             }
 

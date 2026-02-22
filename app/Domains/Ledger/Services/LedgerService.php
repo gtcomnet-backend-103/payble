@@ -53,6 +53,11 @@ final class LedgerService
         return $this->getAccount($business, AccountType::BUSINESS_HOLDS, $currency, $mode);
     }
 
+    public function advance(?Model $business, string $currency, PaymentMode $mode): Account
+    {
+        return $this->getAccount($business, AccountType::ADVANCE, $currency, $mode);
+    }
+
     public function businessReceivable(Model $business, string $currency, PaymentMode $mode = PaymentMode::Live): Account
     {
         return $this->receivable($business, $currency, $mode);
@@ -175,7 +180,7 @@ final class LedgerService
                 'ledger_batch_id' => $batch->id,
                 'ledger_account_id' => $account->id,
                 'transaction_id' => null,
-                'reference' => 'INT-'.mb_strtoupper(bin2hex(random_bytes(4))),
+                'reference' => 'INT-' . mb_strtoupper(bin2hex(random_bytes(4))),
                 'amount' => $amount,
                 'direction' => EntryDirection::CREDIT,
             ]);
