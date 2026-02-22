@@ -13,8 +13,6 @@ enum PayoutStatus: string
     case Reversed = 'reversed';
     case Draft = 'draft';
     case Complete = 'complete';
-    case Unknown = 'unknown';
-    case ReconciliationRequired = 'reconciliation_required';
 
     public function is(self|string $status): bool
     {
@@ -29,8 +27,8 @@ enum PayoutStatus: string
         return match ($this) {
             self::Draft => [self::Pending],
             self::Pending => [self::Processing, self::Success, self::Failed],
-            self::Processing => [self::Success, self::Failed, self::Unknown, self::ReconciliationRequired],
-            self::Success, self::Failed, self::Reversed, self::Unknown, self::ReconciliationRequired => [],
+            self::Processing => [self::Success, self::Failed],
+            self::Success, self::Failed, self::Reversed => [],
             self::Complete => [],
         };
     }

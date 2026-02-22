@@ -14,7 +14,7 @@ final class RegisterBusiness extends RegisterTenant
 {
     public static function getLabel(): string
     {
-        return 'New Business';
+        return 'Onboard Business';
     }
 
     public function form(Schema $schema): Schema
@@ -22,11 +22,9 @@ final class RegisterBusiness extends RegisterTenant
         return $schema
             ->components([
                 TextInput::make('name')
-                    ->placeholder('Business Name')
                     ->required()
                     ->maxLength(255),
                 TextInput::make('email')
-                    ->placeholder('Business Email')
                     ->email()
                     ->required()
                     ->maxLength(255),
@@ -43,12 +41,5 @@ final class RegisterBusiness extends RegisterTenant
         $business->users()->attach(Filament::auth()->user());
 
         return $business;
-    }
-
-    protected function getFormActions(): array
-    {
-        return [
-            $this->getRegisterFormAction()->label('Proceed'),
-        ];
     }
 }

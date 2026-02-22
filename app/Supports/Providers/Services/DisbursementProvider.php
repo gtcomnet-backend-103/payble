@@ -20,7 +20,7 @@ final readonly class DisbursementProvider implements BankAccountResolver, Disbur
 
     public function provider(?PaymentMode $mode = null): Provider
     {
-        $mode = $mode ?? PaymentMode::Test;
+        $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? PaymentMode::Test->value);
 
         try {
             return Provider::query()
@@ -28,8 +28,8 @@ final readonly class DisbursementProvider implements BankAccountResolver, Disbur
                 ->where('is_active', true)
                 ->where('mode', $mode)
                 ->firstOrFail();
-        } catch (ModelNotFoundException) {
-            throw new ModelNotFoundException('Provider not found');
+        }catch (ModelNotFoundException){
+            throw new ModelNotFoundException("Provider not found");
         }
     }
 

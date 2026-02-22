@@ -17,7 +17,6 @@ use App\Models\Provider;
 use App\Models\Transaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
@@ -46,7 +45,7 @@ beforeEach(function () {
     $fundingTx = Transaction::factory()->create([
         'business_id' => $this->business->id,
         'amount' => 10000000, // 100k NGN
-        'reference' => 'FUND_'.Str::random(10),
+        'reference' => 'FUND_' . Str::random(10),
         'source_type' => 'payment',
         'source_id' => $this->business->id,
     ]);
@@ -61,8 +60,6 @@ beforeEach(function () {
 
     $this->createPayout = app(CreatePayout::class);
     $this->authorizePayout = app(AuthorizePayout::class);
-
-    Queue::fake();
 });
 
 it('authorizes a payout successfully in test mode', function () {
@@ -92,8 +89,6 @@ it('authorizes a payout successfully in test mode', function () {
     expect($payout->status)->toBe(PayoutStatus::Processing);
     expect($payout->provider_id)->toBe($this->provider->id);
     expect($payout->provider_reference)->not->toBeNull();
-
-    Queue::assertNotPushed(App\Domains\Payouts\Jobs\ProcessPayoutJob::class);
 });
 
 it('validates payout status before authorization', function () {
@@ -107,7 +102,7 @@ it('validates payout status before authorization', function () {
     // Status is already Pending, but AuthorizePayout checks if it's NOT Pending to throw exception for "already processed"
     $payout->update(['status' => PayoutStatus::Processing]);
 
-    expect(fn () => $this->authorizePayout->execute($payout))
+    expect(fn() => $this->authorizePayout->execute($payout))
         ->toThrow(PayoutException::class, 'this payout cannot be authorized in this state');
 });
 
@@ -159,6 +154,6 @@ it('prevents concurrent authorization attempts', function () {
     $payout->refresh();
 
     // Second authorization should fail
-    expect(fn () => $this->authorizePayout->execute($payout))
+    expect(fn() => $this->authorizePayout->execute($payout))
         ->toThrow(PayoutException::class, 'this payout cannot be authorized in this state');
 });

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Domains\Webhooks\Actions;
+namespace App\Domains\Payments\Actions;
 
 use App\Contracts\IdempotentAction;
+use App\Domains\Payments\Events\WebhookReceived;
 use App\Models\Provider;
 use App\Models\WebhookEvent;
 use App\Supports\Providers\Facades\PaymentProvider;
-use App\Domains\Webhooks\Events\WebhookReceived;
 
 final class CreateWebhookEvent implements IdempotentAction
 {

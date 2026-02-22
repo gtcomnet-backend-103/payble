@@ -10,10 +10,20 @@ use App\Supports\Providers\DataTransferObjects\ProviderResponse;
 
 interface DisbursementProviderInterface
 {
+    /**
+     * @param Provider $provider
+     * @param string $reference
+     * @param string $accountNumber
+     * @param string $bankCode
+     * @param int $amount
+     * @return array{status: string}
+     */
     public function transfer(Provider $provider, string $reference, string $accountNumber, string $bankCode, int $amount): ProviderResponse;
 
     /**
      * Get provider from db where can_payout is true
+     * @param PaymentMode|null $mode
+     * @return Provider
      */
     public function provider(?PaymentMode $mode = null): Provider;
 

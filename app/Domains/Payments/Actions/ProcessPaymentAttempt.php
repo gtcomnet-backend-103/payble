@@ -46,7 +46,7 @@ final class ProcessPaymentAttempt implements IdempotentAction
                 return false;
             }
         } catch (Exception $e) {
-            Log::error('Payment verification failed: '.$e->getMessage());
+            Log::error('Payment verification failed: ' . $e->getMessage());
 
             return false;
         }
@@ -77,10 +77,7 @@ final class ProcessPaymentAttempt implements IdempotentAction
             $finalStatus = $verificationResponse->status;
 
             $attempt->transitionTo($finalStatus);
-            $transaction->update([
-                'fee' => $attempt->fee,
-                'provider_reference' => $attempt->provider_reference,
-            ]);
+            $transaction->update(['fee' => $attempt->fee]);
             $transaction->transitionTo(TransactionStatus::from($finalStatus->value));
             $payment->transitionTo(PaymentStatus::from($finalStatus->value));
 

@@ -49,7 +49,7 @@ final class AuthorizePayout
         $provider = $this->disbursementProvider->provider($payout->mode);
 
         try {
-            $response = $this->disbursementProvider->transfer(
+            $this->disbursementProvider->transfer(
                 provider: $provider,
                 reference: $payout->provider_reference,
                 accountNumber: $bankAccount->account_number,

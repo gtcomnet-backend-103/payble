@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers\Support;
+namespace App\Http\Controllers;
 
+use App\Domains\Payments\Actions\CreateWebhookEvent;
 use App\Models\Provider;
-use App\Domains\Webhooks\Actions\CreateWebhookEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

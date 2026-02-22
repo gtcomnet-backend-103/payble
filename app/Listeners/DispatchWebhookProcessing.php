@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Domains\Webhooks\Listeners;
+namespace App\Listeners;
 
-use App\Domains\Webhooks\Events\WebhookReceived;
-use App\Domains\Webhooks\Jobs\ProcessWebhook;
+use App\Domains\Payments\Events\WebhookReceived;
+use App\Jobs\ProcessWebhook;
 
 final class DispatchWebhookProcessing
 {

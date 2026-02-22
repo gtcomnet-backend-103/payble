@@ -26,23 +26,22 @@ use Spatie\OneTimePasswords\Models\Concerns\HasOneTimePasswords;
  * @property string|null $webhook_url
  * @property \Carbon\CarbonImmutable|null $verified_at
  * @property int|null $bank_account_id
- * @property-read \Illuminate\Database\Eloquent\Collection<int, ApiToken> $apiTokens
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\ApiToken> $apiTokens
  * @property-read int|null $api_tokens_count
- * @property-read BankAccount|null $bankAccount
- * @property-read \Illuminate\Database\Eloquent\Collection<int, BankAccount> $bankAccounts
+ * @property-read \App\Models\BankAccount|null $bankAccount
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\BankAccount> $bankAccounts
  * @property-read int|null $bank_accounts_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, Account> $ledgerAccounts
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Account> $ledgerAccounts
  * @property-read int|null $ledger_accounts_count
  * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
  * @property-read int|null $notifications_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\OneTimePasswords\Models\OneTimePassword> $oneTimePasswords
  * @property-read int|null $one_time_passwords_count
- * @property-read User $owner
+ * @property-read \App\Models\User $owner
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \Laravel\Sanctum\PersonalAccessToken> $tokens
  * @property-read int|null $tokens_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, User> $users
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $users
  * @property-read int|null $users_count
- *
  * @method static \Database\Factories\BusinessFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Business newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Business newQuery()
@@ -56,13 +55,12 @@ use Spatie\OneTimePasswords\Models\Concerns\HasOneTimePasswords;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Business whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Business whereVerifiedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Business whereWebhookUrl($value)
- *
  * @mixin \Eloquent
  */
 final class Business extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\BusinessFactory> */
-    use HasApiTokens, HasFactory, HasOneTimePasswords, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, HasOneTimePasswords;
 
     protected $fillable = [
         'name',
@@ -93,7 +91,7 @@ final class Business extends Authenticatable
 
     public function Account(): Account
     {
-        return $this->ledgerAccounts()->where('type', AccountType::RECEIVABLE)->first();
+        return $this->ledgerAccounts()->where('type', AccountType::BUSINESS_WALLET)->first();
     }
 
     public function bankAccounts(): HasMany

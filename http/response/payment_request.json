@@ -2,9 +2,9 @@
   "data": {
     "amount": 100000,
     "currency": "NGN",
-    "transaction_date": "2026-02-20T18:53:29+00:00",
+    "transaction_date": "2026-02-20T16:35:24+00:00",
     "status": "pending",
-    "reference": "lpYay03Z5cukRX",
+    "reference": "4ydaDfnpUPvZIi",
     "mode": "live",
     "metadata": {
       "order_id": "12345"

@@ -9,8 +9,6 @@ use App\Domains\Payouts\NewPayoutEvent;
 use App\Listeners\ProcessTransactionLedger;
 use App\Listeners\SendOneTimePasswordListener;
 use App\Listeners\SendPaymentNotifications;
-use App\Domains\Webhooks\Events\WebhookReceived;
-use App\Domains\Webhooks\Listeners\DispatchWebhookProcessing;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Event;
 
@@ -24,9 +22,6 @@ final class EventServiceProvider extends ServiceProvider
     protected $listen = [
         NewPayoutEvent::class => [
             SendOneTimePasswordListener::class,
-        ],
-        WebhookReceived::class => [
-            DispatchWebhookProcessing::class,
         ],
     ];
 

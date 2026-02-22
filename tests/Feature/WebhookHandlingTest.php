@@ -12,8 +12,6 @@ use App\Models\PaymentIntent;
 use App\Models\Provider;
 use App\Models\User;
 use App\Models\WebhookEvent;
-use App\Domains\Webhooks\Actions\CreateWebhookEvent;
-use App\Domains\Webhooks\Jobs\ProcessWebhook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 
@@ -67,11 +65,6 @@ it('receives and processes a successful provider webhook', function () {
         'provider_reference' => 'REF_123',
     ]);
 
-    // Update the transaction created by the factory with provider_reference
-    $payment->transaction->update([
-        'provider_reference' => 'REF_123',
-    ]);
-
     // 2. Mock Webhook Interaction
     $payload = [
         'event' => 'charge.success',
@@ -103,20 +96,13 @@ it('receives and processes a successful provider webhook', function () {
         'x-paystack-signature' => getPaystackSignature($payload),
     ])->assertStatus(200);
 
-    // 4. Run the job manually to ensure it processes in the test lifecycle
-    $event = WebhookEvent::where('provider_event_id', '12345')->first();
-    app(ProcessWebhook::class, ['webhookEventId' => $event->id])->handle();
-
-    // 5. Verify Persistence
+    // 4. Verify Persistence
     assertDatabaseHas('webhook_events', [
         'provider' => 'paystack',
         'event_type' => 'charge.success',
-        'provider_event_id' => '12345',
     ]);
 
-    $event->refresh();
-    expect($event->feedback)->toBe('event processed successfully');
-
+    $event = WebhookEvent::first();
     // 6. Assert State Changes
     $attempt->refresh();
     expect($attempt->status)->toBe(AuthorizationStatus::Success);
@@ -199,11 +185,13 @@ it('handles webhook for non-existent payment reference', function () {
     $event = WebhookEvent::where('provider_event_id', 'EVT_UNKNOWN')->first();
 
     // 2. Run the job
-    app(ProcessWebhook::class, ['webhookEventId' => $event->id])->handle();
+    app(App\Jobs\ProcessWebhook::class, ['webhookEventId' => $event->id])->handle(
+        app(App\Domains\Payments\Actions\ProcessPaymentAttempt::class)
+    );
 
     $event->refresh();
     expect($event->processed_at)->not->toBeNull();
-    expect($event->feedback)->toContain('No transaction with provider reference');
+    expect($event->feedback)->toContain('No payment attempt');
 });
 
 it('ignores already processed payments', function () {
@@ -227,12 +215,6 @@ it('ignores already processed payments', function () {
         'fee' => 20,
     ]);
 
-    // Update the transaction created by the factory with provider_reference and Success status
-    $payment->transaction->update([
-        'provider_reference' => 'PAYSTACK_REF_SUCCESS',
-        'status' => App\Enums\TransactionStatus::Success,
-    ]);
-
     $payload = [
         'event' => 'charge.success',
         'data' => [
@@ -252,7 +234,9 @@ it('ignores already processed payments', function () {
     $event = WebhookEvent::where('provider_event_id', 'EVT_SUCCESS_AGAIN')->first();
 
     // 2. Run the job
-    app(ProcessWebhook::class, ['webhookEventId' => $event->id])->handle();
+    app(App\Jobs\ProcessWebhook::class, ['webhookEventId' => $event->id])->handle(
+        app(App\Domains\Payments\Actions\ProcessPaymentAttempt::class)
+    );
 
     $event->refresh();
     expect($event->processed_at)->not->toBeNull();
@@ -270,7 +254,9 @@ it('does not re-process an already processed webhook event', function () {
     ]);
 
     // Run the job
-    app(ProcessWebhook::class, ['webhookEventId' => $event->id])->handle();
+    app(App\Jobs\ProcessWebhook::class, ['webhookEventId' => $event->id])->handle(
+        app(App\Domains\Payments\Actions\ProcessPaymentAttempt::class)
+    );
 
     $event->refresh();
     // Feedback should not change if it returned early

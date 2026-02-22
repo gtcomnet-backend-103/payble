@@ -9,7 +9,6 @@ use App\Domains\Ledger\DataTransferObjects\TransactionData;
 use App\Enums\Currency;
 use App\Enums\PaymentMode;
 use App\Enums\PayoutStatus;
-use Eloquent;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -35,13 +34,12 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
  * @property int|null $bank_account_id
- * @property-read BankAccount|null $bankAccount
- * @property-read Business $business
+ * @property-read \App\Models\BankAccount|null $bankAccount
+ * @property-read \App\Models\Business $business
  * @property-read mixed $net_amount
- * @property-read Model|Eloquent $originator
- * @property-read Provider|null $provider
- * @property-read Transaction|null $transaction
- *
+ * @property-read Model|\Eloquent $originator
+ * @property-read \App\Models\Provider|null $provider
+ * @property-read \App\Models\Transaction|null $transaction
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout query()
@@ -62,10 +60,9 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereRequiresOtp($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Payout whereUpdatedAt($value)
- *
  * @mixin \Eloquent
  */
-class Payout extends Model implements Recordable
+final class Payout extends Model implements Recordable
 {
     use HasFactory;
 
@@ -138,7 +135,7 @@ class Payout extends Model implements Recordable
     protected function netAmount(): Attribute
     {
         return Attribute::get(
-            fn() => max(0, $this->amount - $this->fee)
+            fn () => max(0, $this->amount - $this->fee)
         );
     }
 }

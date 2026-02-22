@@ -11,7 +11,7 @@ use App\Enums\PayoutStatus;
 use App\Models\Payout;
 use Illuminate\Support\Facades\DB;
 
-final class ProcessPayout
+final readonly class ProcessPayout
 {
     public function __construct(
         private DisbursementProviderInterface $disbursementProvider,
@@ -20,11 +20,7 @@ final class ProcessPayout
 
     public function execute(Payout $payout): Payout
     {
-        if (! in_array($payout->status, [
-            PayoutStatus::Processing,
-            PayoutStatus::Unknown,
-            PayoutStatus::ReconciliationRequired,
-        ], true)) {
+        if (! $payout->status->is(PayoutStatus::Processing)) {
             return $payout;
         }
 

@@ -82,7 +82,7 @@ it('processes ledger postings when transaction is successful with account bearer
     ]);
 
     // 2. Provider Fee Expense (10 Debit)
-    $providerFeeAccount = Account::where('type', AccountType::EXPENSE)
+    $providerFeeAccount = Account::where('type', AccountType::PROVIDER_FEE_EXPENSE)
         ->where('holder_id', $this->provider->id)
         ->where('holder_type', $this->provider->getMorphClass())
         ->first();
@@ -95,7 +95,7 @@ it('processes ledger postings when transaction is successful with account bearer
     ]);
 
     // 3. Platform Revenue (50 Credit)
-    $platformAccount = Account::where('type', AccountType::REVENUE)->first();
+    $platformAccount = Account::where('type', AccountType::PLATFORM_FEE_REVENUE)->first();
 
     $this->assertDatabaseHas('ledger_entries', [
         'ledger_account_id' => $platformAccount->id,

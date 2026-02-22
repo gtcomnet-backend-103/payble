@@ -7,6 +7,7 @@ namespace App\Domains\Ledger\Actions;
 use App\Contracts\Recordable;
 use App\Enums\TransactionStatus;
 use App\Models\Transaction;
+use App\Supports\Services\FeeCalculator;
 
 final class RecordTransaction
 {
@@ -30,7 +31,6 @@ final class RecordTransaction
             'status' => TransactionStatus::Pending,
             'mode' => $data->mode,
             'metadata' => $data->metadata,
-            'provider_reference' => $source->provider_reference ?? null,
         ]);
     }
 }
