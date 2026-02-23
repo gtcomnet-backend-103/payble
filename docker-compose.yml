@@ -1,0 +1,126 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Application (development mode)
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_CONNECTION: pgsql
+      DB_HOST: pgsql
+      DB_PORT: "5432"
+      DB_DATABASE: rabbitapp
+      DB_USERNAME: sail
+      DB_PASSWORD: password
+      REDIS_HOST: redis
+    depends_on:
+      pgsql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - casher
+
+  # ---------------------------------------------------------------------------
+  # Queue worker (development)
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    command: php artisan queue:work --sleep=3 --tries=3
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    environment:
+      APP_ENV: local
+      DB_CONNECTION: pgsql
+      DB_HOST: pgsql
+      DB_PORT: "5432"
+      DB_DATABASE: rabbitapp
+      DB_USERNAME: sail
+      DB_PASSWORD: password
+      REDIS_HOST: redis
+    depends_on:
+      pgsql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - casher
+
+  # ---------------------------------------------------------------------------
+  # Vite dev server
+  # ---------------------------------------------------------------------------
+  vite:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    command: npm run dev -- --host 0.0.0.0
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/node_modules
+    networks:
+      - casher
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  pgsql:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: rabbitapp
+      POSTGRES_USER: sail
+      POSTGRES_PASSWORD: password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgsql-data:/var/lib/postgresql/data
+      - ./docker/init-testing-db.sh:/docker-entrypoint-initdb.d/10-testing-db.sh
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U sail -d rabbitapp" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casher
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - casher
+
+volumes:
+  pgsql-data:
+  redis-data:
+
+
+networks:
+  casher:
+    driver: bridge

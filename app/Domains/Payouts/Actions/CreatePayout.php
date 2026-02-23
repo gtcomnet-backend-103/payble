@@ -50,6 +50,7 @@ final readonly class CreatePayout implements IdempotentAction
     {
         $data = Validator::make($data, [
             'date' => ['sometimes', 'date_format:Y-m-d'],
+            'amount' => ['sometimes', 'integer', 'min:1'],
             'currency' => ['required', 'string', 'size:3'],
             'requires_otp' => ['sometimes', 'boolean'],
             'metadata' => ['sometimes', 'array'],
@@ -66,28 +67,37 @@ final readonly class CreatePayout implements IdempotentAction
             $currency = $bankAccount->currency;
             $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? PaymentMode::Live->value);
             $reference = $data['reference'] ?? Str::uuid()->toString();
-            $providerReference = 'PRV_'.Str::random(12);
+            $providerReference = 'PRV_' . Str::random(12);
             $requiresOtp = $data['requires_otp'] ?? false;
             $metadata = $data['metadata'] ?? [];
             $metadata['account'] = $bankAccount->only(['account_name', 'account_number', 'bank_code']);
 
             $account = $this->ledgerService->receivable($business, $currency->value, $mode);
 
-            // Calculate daily earnings (excluding funding/internal adjustments)
-            $date = Carbon::make($data['date'])->format('Y-m-d') ?? now()->subDay()->format('Y-m-d');
-            $earnings = $account->entries()
-                ->where('direction', EntryDirection::CREDIT)
-                ->whereDate('created_at', $date)
-                ->whereHas('transaction', fn ($q) => $q->where('source_type', '!=', 'funding'))
-                ->sum('amount');
+            // Determine target settlement date
+            $date = isset($data['date'])
+                ? Carbon::make($data['date'])->format('Y-m-d')
+                : now()->subDay()->format('Y-m-d');
 
-            if ($earnings <= 0) {
+            // Calculate available earnings from the ledger (credits - debits for the date)
+            $availableEarnings = (int) $account->entries()
+                ->whereDate('created_at', $date)
+                ->selectRaw(
+                    'SUM(CASE WHEN direction = ? THEN amount ELSE -amount END) as net',
+                    [EntryDirection::CREDIT->value]
+                )
+                ->value('net');
+
+            if ($availableEarnings <= 0) {
                 throw ValidationException::withMessages([
-                    'date' => "No earnings found for the specified date: {$date}",
+                    'date' => "No available earnings for the specified date: {$date}",
                 ]);
             }
 
-            $requestedAmount = (int) $earnings;
+            $requestedAmount = isset($data['amount'])
+                ? min((int) $data['amount'], $availableEarnings)
+                : $availableEarnings;
+
             $balance = $this->ledgerService->getBalance($account);
 
             /**
