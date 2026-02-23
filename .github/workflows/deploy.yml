@@ -30,14 +30,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    # Only deploy if CI passed (or manual trigger)
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
 
     environment:
       name: ${{ github.event.inputs.environment || 'staging' }}
-      url: ${{ steps.deploy-url.outputs.url }}
+      url: ${{ vars.APP_URL }}
 
     permissions:
       id-token: write
@@ -61,9 +60,11 @@ jobs:
         id: image-tag
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          TAG="${{ github.event.inputs.environment || 'staging' }}-${SHORT_SHA}-$(date +%s)"
+          TAG="${SHORT_SHA}-$(date +%s)"
+          REGISTRY="${{ steps.ecr-login.outputs.registry }}"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "image=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:$TAG" >> $GITHUB_OUTPUT
+          echo "image=${REGISTRY}/${{ env.ECR_REPOSITORY }}:${TAG}" >> $GITHUB_OUTPUT
+          echo "latest=${REGISTRY}/${{ env.ECR_REPOSITORY }}:latest" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -73,86 +74,26 @@ jobs:
           target: production
           tags: |
             ${{ steps.image-tag.outputs.image }}
-            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ steps.image-tag.outputs.latest }}
 
-      # -----------------------------------------------------------------------
-      # Deploy app (web server)
-      # -----------------------------------------------------------------------
-      - name: Download current app task definition
-        run: |
-          aws ecs describe-task-definition \
-            --task-definition ${{ vars.ECS_TASK_DEFINITION_APP }} \
-            --query taskDefinition \
-            > task-def-app.json
-
-      - name: Update app container image
-        id: render-app
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
         with:
-          task-definition: task-def-app.json
-          container-name: ${{ vars.ECS_CONTAINER_APP }}
-          image: ${{ steps.image-tag.outputs.image }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
 
-      - name: Deploy app to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render-app.outputs.task-definition }}
-          service: ${{ vars.ECS_SERVICE_APP }}
-          cluster: ${{ vars.ECS_CLUSTER }}
-          wait-for-service-stability: true
+            # Login to ECR
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} \
+              | docker login --username AWS --password-stdin ${{ steps.ecr-login.outputs.registry }}
 
-      # -----------------------------------------------------------------------
-      # Deploy worker
-      # -----------------------------------------------------------------------
-      - name: Download current worker task definition
-        run: |
-          aws ecs describe-task-definition \
-            --task-definition ${{ vars.ECS_TASK_DEFINITION_WORKER }} \
-            --query taskDefinition \
-            > task-def-worker.json
+            # Pull the new image
+            docker pull ${{ steps.image-tag.outputs.image }}
+            docker tag ${{ steps.image-tag.outputs.image }} ${{ env.ECR_REPOSITORY }}:latest
 
-      - name: Update worker container image
-        id: render-worker
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-def-worker.json
-          container-name: ${{ vars.ECS_CONTAINER_WORKER }}
-          image: ${{ steps.image-tag.outputs.image }}
-
-      - name: Deploy worker to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render-worker.outputs.task-definition }}
-          service: ${{ vars.ECS_SERVICE_WORKER }}
-          cluster: ${{ vars.ECS_CLUSTER }}
-          wait-for-service-stability: true
-
-      # -----------------------------------------------------------------------
-      # Deploy scheduler
-      # -----------------------------------------------------------------------
-      - name: Download current scheduler task definition
-        run: |
-          aws ecs describe-task-definition \
-            --task-definition ${{ vars.ECS_TASK_DEFINITION_SCHEDULER }} \
-            --query taskDefinition \
-            > task-def-scheduler.json
-
-      - name: Update scheduler container image
-        id: render-scheduler
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-def-scheduler.json
-          container-name: ${{ vars.ECS_CONTAINER_SCHEDULER }}
-          image: ${{ steps.image-tag.outputs.image }}
-
-      - name: Deploy scheduler to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render-scheduler.outputs.task-definition }}
-          service: ${{ vars.ECS_SERVICE_SCHEDULER }}
-          cluster: ${{ vars.ECS_CLUSTER }}
-          wait-for-service-stability: true
-
-      - name: Output deploy URL
-        id: deploy-url
-        run: echo "url=${{ vars.APP_URL }}" >> $GITHUB_OUTPUT
+            # Deploy with docker compose
+            cd ${{ vars.DEPLOY_PATH }}
+            docker compose -f docker-compose.prod.yml up -d --no-build
+            docker image prune -f

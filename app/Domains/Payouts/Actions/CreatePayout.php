@@ -67,7 +67,7 @@ final readonly class CreatePayout implements IdempotentAction
             $currency = $bankAccount->currency;
             $mode = PaymentMode::tryFrom(config('app.payment_mode') ?? PaymentMode::Live->value);
             $reference = $data['reference'] ?? Str::uuid()->toString();
-            $providerReference = 'PRV_' . Str::random(12);
+            $providerReference = 'PRV_'.Str::random(12);
             $requiresOtp = $data['requires_otp'] ?? false;
             $metadata = $data['metadata'] ?? [];
             $metadata['account'] = $bankAccount->only(['account_name', 'account_number', 'bank_code']);

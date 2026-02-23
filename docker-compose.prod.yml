@@ -3,10 +3,7 @@ services:
   # Application (production — Nginx + PHP-FPM)
   # ---------------------------------------------------------------------------
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
+    image: ${DOCKER_IMAGE:-casher:latest}
     command: [ "serve" ]
     ports:
       - "${APP_PORT:-80}:80"
@@ -24,10 +21,7 @@ services:
   # Queue worker (production)
   # ---------------------------------------------------------------------------
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
+    image: ${DOCKER_IMAGE:-casher:latest}
     command: [ "worker" ]
     env_file: .env
     depends_on:
@@ -43,10 +37,7 @@ services:
   # Scheduler (production)
   # ---------------------------------------------------------------------------
   scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
+    image: ${DOCKER_IMAGE:-casher:latest}
     command: [ "scheduler" ]
     env_file: .env
     depends_on:
